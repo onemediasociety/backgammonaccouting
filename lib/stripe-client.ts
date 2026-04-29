@@ -22,6 +22,7 @@ export interface PaymentRecord {
   description: string | null;
   clubSlug: string;
   customerName: string | null;
+  customerEmail: string | null;
 }
 
 export interface ChargeRecord {
@@ -212,6 +213,7 @@ export async function fetchAllPayments(
       description,
       clubSlug: getClubSlug(pi.amount, pi.currency, description),
       customerName: charge?.billing_details?.name ?? null,
+      customerEmail: charge?.billing_details?.email ?? null,
     });
     if (results.length >= maxRecords) break;
   }
@@ -250,6 +252,7 @@ export async function fetchPaymentsForClub(
       description,
       clubSlug,
       customerName: charge?.billing_details?.name ?? null,
+      customerEmail: charge?.billing_details?.email ?? null,
     });
     if (results.length >= maxRecords) break;
   }
