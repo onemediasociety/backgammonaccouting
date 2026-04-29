@@ -86,7 +86,17 @@ export default async function ClubPage({
         <h2 className="text-lg font-semibold text-gray-800 mb-3">
           Stripe Payments
         </h2>
-        {stripeError ? (
+        {club.matchFn(0, club.currency) === false && club.slug === "dc" ? (
+          <div className="rounded-lg bg-amber-50 border border-amber-200 p-4 text-amber-800 text-sm">
+            <strong>No Stripe product exists for DC yet.</strong> Currently all
+            online $26 payments are attributed to NYC (the only existing $26
+            Stripe product — &ldquo;NYC BACKGAMMON SOCIETY&rdquo;). To split DC
+            payments automatically, create a separate Stripe product + payment
+            link for DC at whatever price you set, then update{" "}
+            <code className="bg-amber-100 px-1 rounded">lib/clubs.ts</code> with
+            the matching amount.
+          </div>
+        ) : stripeError ? (
           <div className="rounded-lg bg-red-50 border border-red-200 p-4 text-red-700 text-sm">
             {stripeError} — ensure{" "}
             <code className="bg-red-100 px-1 rounded">STRIPE_SECRET_KEY</code>{" "}

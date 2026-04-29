@@ -22,8 +22,11 @@ export const CLUBS: Club[] = [
     color: "blue",
     accentBg: "bg-blue-50",
     accentText: "text-blue-700",
-    // NYC price is $26.00
-    matchFn: (amount, currency) => currency === "usd" && amount === 2600,
+    // $26 = base price; $27 = $26 + Stripe automatic tax (~3.85%)
+    // Both map to NYC — the only $26 Stripe product (prod_TgUTQ67JBNXER8).
+    // DC will need its own Stripe product before online payments can be split.
+    matchFn: (amount, currency) =>
+      currency === "usd" && (amount === 2600 || amount === 2700),
   },
   {
     slug: "dc",
@@ -35,8 +38,8 @@ export const CLUBS: Club[] = [
     color: "indigo",
     accentBg: "bg-indigo-50",
     accentText: "text-indigo-700",
-    // DC price is $27.00
-    matchFn: (amount, currency) => currency === "usd" && amount === 2700,
+    // No Stripe product exists yet for DC — cash buy-ins only until one is created.
+    matchFn: () => false,
   },
   {
     slug: "miami",
