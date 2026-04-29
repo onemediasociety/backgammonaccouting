@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { buildClubSummaries, fetchBalance, fetchAllPayments } from "@/lib/stripe-client";
+import { buildClubSummaries, fetchBalance, fetchAllPayments, fetchFeesByClub } from "@/lib/stripe-client";
 import { getCashTotalsPerClub, getAllCashEntries } from "@/lib/cash-store";
 import { formatAmount, CLUBS } from "@/lib/clubs";
 import ClubCard from "@/components/ClubCard";
@@ -47,15 +47,17 @@ export default async function DashboardPage({
   let summaries = null;
   let balance = null;
   let cashTotals: Record<string, number> = {};
+  let feesByClub: Record<string, number> = {};
   let allPaymentsForChart = null;
   let cashEntriesForChart = null;
   let error: string | null = null;
 
   try {
-    [summaries, balance, cashTotals, allPaymentsForChart] = await Promise.all([
+    [summaries, balance, cashTotals, feesByClub, allPaymentsForChart] = await Promise.all([
       buildClubSummaries(fromTs, toTs_),
       fetchBalance(),
       Promise.resolve(getCashTotalsPerClub(range.from ?? undefined, range.to ?? undefined)),
+      fetchFeesByClub(fromTs, toTs_),
       fetchAllPayments(500, chartFromTs),
     ]);
     cashEntriesForChart = getAllCashEntries(
@@ -160,12 +162,14 @@ export default async function DashboardPage({
         {CLUBS.map((club) => {
           const summary = summaries?.find((s) => s.club.slug === club.slug);
           const cashTotal = cashTotals[club.slug] ?? 0;
+          const stripeFees = feesByClub[club.slug] ?? 0;
           return (
             <ClubCard
               key={club.slug}
               club={club}
               stripeTotal={summary?.totalCents ?? 0}
               stripeCount={summary?.successCount ?? 0}
+              stripeFees={stripeFees}
               cashTotal={cashTotal}
               hasError={!!error}
               periodQuery={

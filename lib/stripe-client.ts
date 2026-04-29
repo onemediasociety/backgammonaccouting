@@ -91,6 +91,19 @@ export async function fetchChargesWithFees(
   });
 }
 
+export async function fetchFeesByClub(
+  fromTs?: number,
+  toTs?: number
+): Promise<Record<string, number>> {
+  const charges = await fetchChargesWithFees(500, fromTs, toTs);
+  const fees: Record<string, number> = {};
+  for (const c of charges) {
+    if (c.status !== "succeeded") continue;
+    fees[c.clubSlug] = (fees[c.clubSlug] ?? 0) + c.fee;
+  }
+  return fees;
+}
+
 export async function fetchPayouts(limit = 50): Promise<PayoutRecord[]> {
   const stripe = getStripe();
   const payouts = await stripe.payouts.list({ limit });

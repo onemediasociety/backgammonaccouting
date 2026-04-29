@@ -5,6 +5,7 @@ interface Props {
   club: Club;
   stripeTotal: number;
   stripeCount: number;
+  stripeFees: number;
   cashTotal: number;
   hasError: boolean;
   periodQuery?: string;
@@ -14,10 +15,12 @@ export default function ClubCard({
   club,
   stripeTotal,
   stripeCount,
+  stripeFees,
   cashTotal,
   hasError,
   periodQuery = "",
 }: Props) {
+  const stripeNet = stripeTotal - stripeFees;
   const combined = stripeTotal + cashTotal;
   const href = `/clubs/${club.slug}${periodQuery ? `?${periodQuery}` : ""}`;
 
@@ -41,13 +44,22 @@ export default function ClubCard({
 
         <div className="space-y-2 text-sm">
           <Row
-            label="Stripe"
-            value={
-              hasError
-                ? "—"
-                : `${formatAmount(stripeTotal, club.currency)} (${stripeCount})`
-            }
+            label="Stripe gross"
+            value={hasError ? "—" : `${formatAmount(stripeTotal, club.currency)} (${stripeCount})`}
           />
+          {!hasError && stripeFees > 0 && (
+            <Row
+              label="Stripe fees"
+              value={`(${formatAmount(stripeFees, club.currency)})`}
+              dimRed
+            />
+          )}
+          {!hasError && stripeFees > 0 && (
+            <Row
+              label="Stripe net"
+              value={formatAmount(stripeNet, club.currency)}
+            />
+          )}
           <Row
             label="Cash buy-ins"
             value={formatAmount(cashTotal, club.currency)}
@@ -55,9 +67,7 @@ export default function ClubCard({
           <div className="pt-2 border-t border-gray-100">
             <Row
               label="Combined total"
-              value={
-                hasError ? "—" : formatAmount(combined, club.currency)
-              }
+              value={hasError ? "—" : formatAmount(combined, club.currency)}
               bold
             />
           </div>
@@ -71,15 +81,25 @@ function Row({
   label,
   value,
   bold = false,
+  dimRed = false,
 }: {
   label: string;
   value: string;
   bold?: boolean;
+  dimRed?: boolean;
 }) {
   return (
     <div className="flex justify-between">
       <span className="text-gray-500">{label}</span>
-      <span className={bold ? "font-bold text-gray-900" : "text-gray-700"}>
+      <span
+        className={
+          bold
+            ? "font-bold text-gray-900"
+            : dimRed
+            ? "text-red-400 text-xs self-center"
+            : "text-gray-700"
+        }
+      >
         {value}
       </span>
     </div>
