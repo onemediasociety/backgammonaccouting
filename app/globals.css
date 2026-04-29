@@ -1,3 +1,452 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ── Design tokens ─────────────────────────────────────────────── */
+:root {
+  --bg:       #f4f3ef;
+  --paper:    #ffffff;
+  --paper-2:  #f7f6f2;
+  --ink:      #1a1611;
+  --ink-2:    #43403a;
+  --ink-3:    #807a70;
+  --rule:     rgba(40, 35, 28, 0.12);
+  --brass:    #b89042;
+  --burgundy: #8b1a1a;
+  --green:    #1f4d3a;
+
+  --sidebar-w: 220px;
+  --sidebar-rail: 64px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg:      #14110c;
+    --paper:   #1c1812;
+    --paper-2: #211e19;
+    --ink:     #f0ebe2;
+    --ink-2:   #c8bfb0;
+    --ink-3:   #7a7264;
+    --rule:    rgba(240, 235, 226, 0.1);
+  }
+}
+
+/* ── Base ──────────────────────────────────────────────────────── */
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(ellipse 80% 50% at 5% 0%, rgba(184, 144, 66, 0.07) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 95% 100%, rgba(139, 26, 26, 0.05) 0%, transparent 50%);
+  color: var(--ink);
+  font-family: var(--font-inter, system-ui), sans-serif;
+}
+
+/* ── Decorative stripe ─────────────────────────────────────────── */
+.bs-stripe {
+  height: 4px;
+  width: 100%;
+  flex-shrink: 0;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--ink) 0 8px,
+    transparent 8px 16px,
+    var(--brass) 16px 24px,
+    transparent 24px 32px,
+    var(--burgundy) 32px 40px,
+    transparent 40px 48px
+  );
+}
+
+/* ── Sidebar ───────────────────────────────────────────────────── */
+.bs-sidebar {
+  background-color: var(--ink);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  transition: width 200ms ease;
+  flex-shrink: 0;
+}
+
+.bs-logo-mark {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 20px 14px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+}
+
+.bs-logo-mark .logo-badge {
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, var(--brass) 0%, #8a6a2a 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-cormorant, 'Cormorant Garamond', Georgia, serif);
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.01em;
+  flex-shrink: 0;
+}
+
+.bs-logo-mark .logo-text {
+  font-family: var(--font-cormorant, 'Cormorant Garamond', Georgia, serif);
+  font-size: 15px;
+  font-weight: 600;
+  color: rgba(240, 235, 226, 0.9);
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.bs-logo-mark .logo-sub {
+  font-family: var(--font-dm-mono, 'DM Mono', monospace);
+  font-size: 9px;
+  font-weight: 400;
+  color: rgba(240, 235, 226, 0.4);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* ── Sidebar nav items ─────────────────────────────────────────── */
+.bs-nav {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 8px 0;
+}
+
+.bs-nav::-webkit-scrollbar { width: 4px; }
+.bs-nav::-webkit-scrollbar-track { background: transparent; }
+.bs-nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+
+.bs-nav-section {
+  padding: 16px 12px 4px;
+}
+
+.bs-nav-section-label {
+  font-family: var(--font-dm-mono, 'DM Mono', monospace);
+  font-size: 9px;
+  font-weight: 500;
+  color: rgba(240, 235, 226, 0.3);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.bs-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  margin: 1px 8px;
+  border-radius: 7px;
+  text-decoration: none;
+  color: rgba(240, 235, 226, 0.65);
+  font-size: 13px;
+  font-weight: 500;
+  transition: background 140ms, color 140ms;
+  white-space: nowrap;
+  overflow: hidden;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  width: calc(100% - 16px);
+  text-align: left;
+}
+
+.bs-nav-item:hover {
+  background: rgba(255, 255, 255, 0.07);
+  color: rgba(240, 235, 226, 0.9);
+}
+
+.bs-nav-item.active {
+  background: rgba(184, 144, 66, 0.18);
+  color: var(--brass);
+}
+
+.bs-nav-item .nav-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.bs-nav-item .nav-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Sidebar footer ────────────────────────────────────────────── */
+.bs-sidebar-footer {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 12px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bs-user-chip {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 4px;
+  overflow: hidden;
+}
+
+.bs-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--brass) 0%, #8a6a2a 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-cormorant, Georgia, serif);
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.bs-user-info {
+  overflow: hidden;
+}
+
+.bs-user-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(240, 235, 226, 0.85);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bs-user-role {
+  font-family: var(--font-dm-mono, monospace);
+  font-size: 9px;
+  color: rgba(240, 235, 226, 0.35);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* ── Cards and paper surfaces ──────────────────────────────────── */
+.bs-card {
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+}
+
+.bs-card-2 {
+  background: var(--paper-2);
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+}
+
+/* ── Typography helpers ────────────────────────────────────────── */
+.bs-heading {
+  font-family: var(--font-cormorant, 'Cormorant Garamond', Georgia, serif);
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+}
+
+.bs-mono {
+  font-family: var(--font-dm-mono, 'DM Mono', monospace);
+  font-variant-numeric: tabular-nums;
+}
+
+.bs-label {
+  font-family: var(--font-dm-mono, 'DM Mono', monospace);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+/* ── Tables ────────────────────────────────────────────────────── */
+.bs-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.bs-table th {
+  font-family: var(--font-dm-mono, 'DM Mono', monospace);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--rule);
+  text-align: left;
+}
+
+.bs-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--rule);
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
+.bs-table tr:last-child td {
+  border-bottom: none;
+}
+
+.bs-table tr:hover td {
+  background: var(--paper-2);
+}
+
+/* ── Amount display ────────────────────────────────────────────── */
+.bs-amount {
+  font-family: var(--font-dm-mono, 'DM Mono', monospace);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.bs-amount-positive { color: var(--green); }
+.bs-amount-negative { color: var(--burgundy); }
+.bs-amount-dim { color: var(--ink-3); }
+
+/* ── Period filter pills ───────────────────────────────────────── */
+.bs-period-pill {
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-family: var(--font-dm-mono, monospace);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 120ms, color 120ms;
+  border: 1px solid transparent;
+  background: var(--paper-2);
+  color: var(--ink-3);
+}
+
+.bs-period-pill:hover {
+  background: var(--paper);
+  color: var(--ink-2);
+  border-color: var(--rule);
+}
+
+.bs-period-pill.active {
+  background: var(--ink);
+  color: var(--brass);
+  border-color: var(--ink);
+}
+
+/* ── Toggle button for sidebar ─────────────────────────────────── */
+.bs-sidebar-toggle {
+  padding: 6px 14px 10px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.bs-sidebar-toggle button {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 5px;
+  border: none;
+  background: rgba(255,255,255,0.07);
+  color: rgba(240, 235, 226, 0.5);
+  cursor: pointer;
+  transition: background 120ms;
+  flex-shrink: 0;
+}
+
+.bs-sidebar-toggle button:hover {
+  background: rgba(255,255,255,0.12);
+  color: rgba(240, 235, 226, 0.8);
+}
+
+/* ── Mobile overlay ────────────────────────────────────────────── */
+.bs-mobile-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 39;
+}
+
+.bs-mobile-overlay.open { display: block; }
+
+@media (max-width: 767px) {
+  .bs-sidebar {
+    position: fixed;
+    top: 4px; /* below stripe */
+    left: 0;
+    height: calc(100vh - 4px);
+    z-index: 40;
+    transform: translateX(-100%);
+    transition: transform 220ms ease, width 200ms ease;
+  }
+
+  .bs-sidebar.mobile-open {
+    transform: translateX(0);
+  }
+}
+
+/* ── Topbar (mobile hamburger) ─────────────────────────────────── */
+.bs-topbar {
+  display: none;
+  align-items: center;
+  gap: 12px;
+  height: 52px;
+  padding: 0 16px;
+  background: var(--ink);
+  position: sticky;
+  top: 0;
+  z-index: 30;
+}
+
+@media (max-width: 767px) {
+  .bs-topbar { display: flex; }
+}
+
+.bs-hamburger {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+}
+
+.bs-hamburger span {
+  display: block;
+  width: 20px;
+  height: 1.5px;
+  background: rgba(240, 235, 226, 0.7);
+  border-radius: 2px;
+  transition: 200ms;
+}
+
+/* ── Scrollbar global ──────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--rule); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--ink-3); }

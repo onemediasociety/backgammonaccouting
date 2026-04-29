@@ -9,14 +9,14 @@ interface Props {
   currency: string;
 }
 
-const CATEGORY_COLORS: Record<string, string> = {
-  Equipment: "bg-blue-50 text-blue-700",
-  Marketing: "bg-purple-50 text-purple-700",
-  Venue: "bg-amber-50 text-amber-700",
-  Prizes: "bg-green-50 text-green-700",
-  Travel: "bg-indigo-50 text-indigo-700",
-  Staff: "bg-pink-50 text-pink-700",
-  Other: "bg-gray-100 text-gray-600",
+const CATEGORY_COLORS: Record<string, { bg: string; color: string }> = {
+  Equipment: { bg: "rgba(59,130,246,0.1)", color: "#1d4ed8" },
+  Marketing:  { bg: "rgba(139,92,246,0.1)", color: "#7c3aed" },
+  Venue:      { bg: "rgba(184,144,66,0.12)", color: "#8a6a2a" },
+  Prizes:     { bg: "rgba(31,77,58,0.1)", color: "#1f4d3a" },
+  Travel:     { bg: "rgba(99,102,241,0.1)", color: "#4f46e5" },
+  Staff:      { bg: "rgba(236,72,153,0.1)", color: "#be185d" },
+  Other:      { bg: "rgba(0,0,0,0.05)", color: "var(--ink-3)" },
 };
 
 export default function ExpenseTable({ entries, currency }: Props) {
@@ -30,8 +30,11 @@ export default function ExpenseTable({ entries, currency }: Props) {
 
   if (list.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed border-gray-200 p-8 text-center text-gray-400 text-sm">
-        No expenses recorded yet. Use the form above to add one.
+      <div style={{
+        border: "1px dashed var(--rule)", borderRadius: 10, padding: "32px",
+        textAlign: "center", color: "var(--ink-3)", fontSize: 13,
+      }}>
+        No expenses recorded yet.
       </div>
     );
   }
@@ -39,50 +42,59 @@ export default function ExpenseTable({ entries, currency }: Props) {
   const total = list.reduce((s, e) => s + e.amountCents, 0);
 
   return (
-    <div className="rounded-xl border border-gray-200 overflow-hidden">
-      <table className="w-full text-sm">
-        <thead className="bg-gray-50 border-b border-gray-200">
+    <div className="bs-card" style={{ overflow: "hidden" }}>
+      <table className="bs-table">
+        <thead>
           <tr>
-            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Date</th>
-            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Category</th>
-            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Description</th>
-            <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Amount</th>
-            <th className="px-4 py-3" />
+            <th>Date</th>
+            <th>Category</th>
+            <th>Description</th>
+            <th style={{ textAlign: "right" }}>Amount</th>
+            <th />
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-100 bg-white">
-          {list.map((e) => (
-            <tr key={e.id} className="hover:bg-gray-50">
-              <td className="px-4 py-3 text-gray-700">{e.date}</td>
-              <td className="px-4 py-3">
-                <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${CATEGORY_COLORS[e.category] ?? CATEGORY_COLORS.Other}`}>
-                  {e.category}
-                </span>
-              </td>
-              <td className="px-4 py-3 text-gray-700">
-                <div>{e.description}</div>
-                {e.notes && <div className="text-xs text-gray-400">{e.notes}</div>}
-              </td>
-              <td className="px-4 py-3 text-right font-semibold text-red-600">
-                {formatAmount(e.amountCents, e.currency)}
-              </td>
-              <td className="px-4 py-3 text-right">
-                <button
-                  onClick={() => handleDelete(e.id)}
-                  className="text-xs text-red-400 hover:text-red-600"
-                >
-                  Remove
-                </button>
-              </td>
-            </tr>
-          ))}
+        <tbody>
+          {list.map((e) => {
+            const cat = CATEGORY_COLORS[e.category] ?? CATEGORY_COLORS.Other;
+            return (
+              <tr key={e.id}>
+                <td className="bs-mono" style={{ fontSize: 12 }}>{e.date}</td>
+                <td>
+                  <span style={{
+                    display: "inline-block", padding: "2px 8px", borderRadius: 20,
+                    fontFamily: "var(--font-dm-mono, monospace)", fontSize: 10,
+                    background: cat.bg, color: cat.color,
+                  }}>
+                    {e.category}
+                  </span>
+                </td>
+                <td>
+                  <div style={{ fontSize: 13, color: "var(--ink-2)" }}>{e.description}</div>
+                  {e.notes && <div className="bs-mono" style={{ fontSize: 10, color: "var(--ink-3)" }}>{e.notes}</div>}
+                </td>
+                <td className="bs-amount bs-amount-negative" style={{ textAlign: "right", fontSize: 13, fontWeight: 600 }}>
+                  {formatAmount(e.amountCents, e.currency)}
+                </td>
+                <td style={{ textAlign: "right" }}>
+                  <button
+                    onClick={() => handleDelete(e.id)}
+                    style={{ fontSize: 11, color: "var(--burgundy)", opacity: 0.6, background: "none", border: "none", cursor: "pointer" }}
+                    onMouseEnter={(e) => { (e.target as HTMLButtonElement).style.opacity = "1"; }}
+                    onMouseLeave={(e) => { (e.target as HTMLButtonElement).style.opacity = "0.6"; }}
+                  >
+                    Remove
+                  </button>
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
-        <tfoot className="bg-gray-50 border-t border-gray-200">
-          <tr>
-            <td colSpan={3} className="px-4 py-3 text-right text-sm font-semibold text-gray-600">
+        <tfoot>
+          <tr style={{ borderTop: "2px solid var(--rule)" }}>
+            <td colSpan={3} style={{ padding: "10px 12px", textAlign: "right", fontSize: 12, color: "var(--ink-3)" }}>
               Total Expenses
             </td>
-            <td className="px-4 py-3 text-right font-bold text-red-600">
+            <td className="bs-amount bs-amount-negative" style={{ padding: "10px 12px", textAlign: "right", fontWeight: 700 }}>
               {formatAmount(total, currency)}
             </td>
             <td />

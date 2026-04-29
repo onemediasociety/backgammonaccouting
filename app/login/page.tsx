@@ -36,65 +36,119 @@ function LoginForm() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-8 w-full max-w-sm">
-        <div className="text-center mb-8">
-          <div className="text-4xl mb-3">🎲</div>
-          <h1 className="text-xl font-bold text-gray-900">The Backgammon Society</h1>
-          <p className="text-sm text-gray-500 mt-1">Accounting Dashboard</p>
+    <div style={{
+      minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center",
+      background: "var(--bg)",
+      backgroundImage: "radial-gradient(ellipse 80% 50% at 5% 0%, rgba(184,144,66,0.08) 0%, transparent 60%), radial-gradient(ellipse 60% 40% at 95% 100%, rgba(139,26,26,0.06) 0%, transparent 50%)",
+    }}>
+      <div style={{ width: "100%", maxWidth: 360, padding: "0 16px" }}>
+        {/* Logo card */}
+        <div style={{ textAlign: "center", marginBottom: 32 }}>
+          <div style={{
+            width: 52, height: 52, borderRadius: 12, margin: "0 auto 14px",
+            background: "linear-gradient(135deg, #b89042 0%, #8a6a2a 100%)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontFamily: "var(--font-cormorant, Georgia, serif)", fontSize: 20, fontWeight: 700, color: "#fff",
+          }}>
+            BS
+          </div>
+          <h1 style={{
+            fontFamily: "var(--font-cormorant, Georgia, serif)",
+            fontSize: 24, fontWeight: 700, color: "var(--ink)", marginBottom: 4,
+          }}>
+            The Backgammon Society
+          </h1>
+          <p style={{
+            fontFamily: "var(--font-dm-mono, monospace)",
+            fontSize: 10, color: "var(--ink-3)", letterSpacing: "0.1em", textTransform: "uppercase",
+          }}>
+            Accounting Dashboard
+          </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">
-              Username
-            </label>
-            <input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              required
-              autoFocus
-              autoComplete="username"
-              className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="admin"
-            />
-          </div>
+        {/* Form card */}
+        <div className="bs-card" style={{ padding: "28px 32px" }}>
+          <form onSubmit={handleSubmit}>
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ display: "block", fontFamily: "var(--font-dm-mono, monospace)", fontSize: 10, fontWeight: 500, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--ink-3)", marginBottom: 6 }}>
+                Username
+              </label>
+              <input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                required
+                autoFocus
+                autoComplete="username"
+                placeholder="admin"
+                style={{
+                  width: "100%", borderRadius: 8, border: "1px solid var(--rule)",
+                  padding: "9px 12px", fontSize: 13, fontFamily: "var(--font-dm-mono, monospace)",
+                  background: "var(--paper-2)", color: "var(--ink)", outline: "none",
+                  boxSizing: "border-box",
+                  transition: "border-color 150ms",
+                }}
+                onFocus={(e) => { e.target.style.borderColor = "var(--brass)"; }}
+                onBlur={(e) => { e.target.style.borderColor = "var(--rule)"; }}
+              />
+            </div>
 
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">
-              Password
-            </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              autoComplete="current-password"
-              className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="••••••••"
-            />
-          </div>
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ display: "block", fontFamily: "var(--font-dm-mono, monospace)", fontSize: 10, fontWeight: 500, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--ink-3)", marginBottom: 6 }}>
+                Password
+              </label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                autoComplete="current-password"
+                placeholder="••••••••"
+                style={{
+                  width: "100%", borderRadius: 8, border: "1px solid var(--rule)",
+                  padding: "9px 12px", fontSize: 13, fontFamily: "var(--font-dm-mono, monospace)",
+                  background: "var(--paper-2)", color: "var(--ink)", outline: "none",
+                  boxSizing: "border-box",
+                  transition: "border-color 150ms",
+                }}
+                onFocus={(e) => { e.target.style.borderColor = "var(--brass)"; }}
+                onBlur={(e) => { e.target.style.borderColor = "var(--rule)"; }}
+              />
+            </div>
 
-          {error && (
-            <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">
-              {error}
-            </p>
-          )}
+            {error && (
+              <div style={{
+                background: "rgba(139,26,26,0.07)", border: "1px solid rgba(139,26,26,0.2)",
+                borderRadius: 7, padding: "10px 14px", marginBottom: 16,
+                fontSize: 12, color: "var(--burgundy)",
+              }}>
+                {error}
+              </div>
+            )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-2.5 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
-          >
-            {loading ? "Signing in…" : "Sign In"}
-          </button>
-        </form>
+            <button
+              type="submit"
+              disabled={loading}
+              style={{
+                width: "100%", padding: "11px", borderRadius: 8, border: "none",
+                background: "var(--ink)", color: "rgba(240,235,226,0.9)",
+                fontFamily: "var(--font-dm-mono, monospace)", fontSize: 12,
+                fontWeight: 500, letterSpacing: "0.06em", textTransform: "uppercase",
+                cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.6 : 1,
+                transition: "background 150ms",
+              }}
+              onMouseEnter={(e) => { if (!loading) (e.target as HTMLButtonElement).style.background = "var(--ink-2)"; }}
+              onMouseLeave={(e) => { (e.target as HTMLButtonElement).style.background = "var(--ink)"; }}
+            >
+              {loading ? "Signing in…" : "Sign In"}
+            </button>
+          </form>
+        </div>
 
-        <p className="text-center text-xs text-gray-400 mt-6">
-          Super admins: use username{" "}
-          <span className="font-mono bg-gray-100 px-1 rounded">admin</span> with the
-          site password.
+        <p style={{ textAlign: "center", fontSize: 11, color: "var(--ink-3)", marginTop: 16 }}>
+          Super admins: username{" "}
+          <span style={{ fontFamily: "var(--font-dm-mono, monospace)", background: "var(--paper-2)", padding: "1px 5px", borderRadius: 3 }}>admin</span>
+          {" "}+ site password
         </p>
       </div>
     </div>

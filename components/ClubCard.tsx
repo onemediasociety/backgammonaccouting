@@ -27,50 +27,78 @@ export default function ClubCard({
   const href = `/clubs/${club.slug}${periodQuery ? `?${periodQuery}` : ""}`;
 
   return (
-    <Link href={href}>
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow p-5 h-full">
-        <div className="flex items-start justify-between mb-4">
+    <Link href={href} style={{ textDecoration: "none" }}>
+      <div
+        className="bs-card"
+        style={{
+          padding: "20px",
+          height: "100%",
+          transition: "box-shadow 150ms, transform 150ms",
+          cursor: "pointer",
+        }}
+        onMouseEnter={(e) => {
+          (e.currentTarget as HTMLDivElement).style.boxShadow = "0 4px 20px rgba(26,22,17,0.1)";
+          (e.currentTarget as HTMLDivElement).style.transform = "translateY(-1px)";
+        }}
+        onMouseLeave={(e) => {
+          (e.currentTarget as HTMLDivElement).style.boxShadow = "";
+          (e.currentTarget as HTMLDivElement).style.transform = "";
+        }}
+      >
+        {/* Header */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
           <div>
-            <span className="text-3xl">{club.flag}</span>
-            <h3 className="mt-2 font-semibold text-gray-900 leading-tight">
+            <span style={{ fontSize: 28, lineHeight: 1 }}>{club.flag}</span>
+            <h3
+              className="bs-heading"
+              style={{ fontSize: 17, marginTop: 6, marginBottom: 2, lineHeight: 1.2 }}
+            >
               {club.name}
             </h3>
-            <p className="text-xs text-gray-400 mt-0.5">{club.city}</p>
+            <p className="bs-mono" style={{ fontSize: 10, color: "var(--ink-3)", letterSpacing: "0.06em" }}>
+              {club.city}
+            </p>
           </div>
           <span
-            className={`text-xs font-medium px-2 py-0.5 rounded-full ${club.accentBg} ${club.accentText}`}
+            className="bs-mono"
+            style={{
+              fontSize: 10,
+              fontWeight: 500,
+              letterSpacing: "0.08em",
+              padding: "3px 8px",
+              borderRadius: 20,
+              background: "var(--paper-2)",
+              border: "1px solid var(--rule)",
+              color: "var(--ink-3)",
+            }}
           >
             {club.currency.toUpperCase()}
           </span>
         </div>
 
-        <div className="space-y-2 text-sm">
+        {/* Rows */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <Row
             label="Stripe gross"
-            value={hasError ? "—" : `${formatAmount(stripeTotal, club.currency)} (${stripeCount})`}
+            value={hasError ? "—" : `${formatAmount(stripeTotal, club.currency)}`}
+            sub={hasError ? "" : `${stripeCount} txn`}
           />
           <Row
             label="Stripe fees"
             value={
-              hasError
-                ? "—"
-                : !feesAvailable
-                ? "—"
-                : `(${formatAmount(stripeFees, club.currency)})`
+              hasError ? "—" : !feesAvailable ? "—" : `(${formatAmount(stripeFees, club.currency)})`
             }
-            dimRed={feesAvailable && !hasError}
+            negative={feesAvailable && !hasError}
           />
           <Row
             label="Stripe net"
-            value={
-              hasError ? "—" : !feesAvailable ? "—" : formatAmount(stripeNet, club.currency)
-            }
+            value={hasError ? "—" : !feesAvailable ? "—" : formatAmount(stripeNet, club.currency)}
           />
           <Row
             label="Cash buy-ins"
             value={formatAmount(cashTotal, club.currency)}
           />
-          <div className="pt-2 border-t border-gray-100">
+          <div style={{ paddingTop: 10, borderTop: "1px solid var(--rule)", marginTop: 2 }}>
             <Row
               label="Combined total"
               value={hasError ? "—" : formatAmount(combined, club.currency)}
@@ -86,27 +114,33 @@ export default function ClubCard({
 function Row({
   label,
   value,
+  sub,
   bold = false,
-  dimRed = false,
+  negative = false,
 }: {
   label: string;
   value: string;
+  sub?: string;
   bold?: boolean;
-  dimRed?: boolean;
+  negative?: boolean;
 }) {
   return (
-    <div className="flex justify-between">
-      <span className="text-gray-500">{label}</span>
-      <span
-        className={
-          bold
-            ? "font-bold text-gray-900"
-            : dimRed
-            ? "text-red-500 text-xs self-center"
-            : "text-gray-700"
-        }
-      >
-        {value}
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+      <span style={{ fontSize: 12, color: "var(--ink-3)" }}>{label}</span>
+      <span style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+        {sub && (
+          <span className="bs-mono" style={{ fontSize: 10, color: "var(--ink-3)" }}>{sub}</span>
+        )}
+        <span
+          className="bs-mono"
+          style={{
+            fontSize: bold ? 14 : 12,
+            fontWeight: bold ? 700 : 500,
+            color: negative ? "var(--burgundy)" : bold ? "var(--ink)" : "var(--ink-2)",
+          }}
+        >
+          {value}
+        </span>
       </span>
     </div>
   );

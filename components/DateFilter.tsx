@@ -47,39 +47,45 @@ export default function DateFilter() {
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
       {PRESETS.map(({ key, label }) => (
         <button
           key={key}
           onClick={() => selectPreset(key)}
-          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-            activePeriod === key
-              ? "bg-brand-500 text-white"
-              : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
-          }`}
+          className={`bs-period-pill${activePeriod === key ? " active" : ""}`}
         >
           {label}
         </button>
       ))}
 
       {activePeriod === "custom" && (
-        <div className="flex items-center gap-2 mt-1 w-full sm:w-auto sm:mt-0">
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, width: "100%" }}>
           <input
             type="date"
             value={customFrom}
             onChange={(e) =>
               setParams({ period: "custom", from: e.target.value, to: customTo })
             }
-            className="rounded-lg border border-gray-200 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+            style={{
+              borderRadius: 8, border: "1px solid var(--rule)", padding: "5px 10px",
+              fontSize: 12, fontFamily: "var(--font-dm-mono, monospace)",
+              background: "var(--paper-2)", color: "var(--ink)",
+              outline: "none",
+            }}
           />
-          <span className="text-gray-400 text-sm">to</span>
+          <span style={{ fontSize: 11, color: "var(--ink-3)" }}>to</span>
           <input
             type="date"
             value={customTo}
             onChange={(e) =>
               setParams({ period: "custom", from: customFrom, to: e.target.value })
             }
-            className="rounded-lg border border-gray-200 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+            style={{
+              borderRadius: 8, border: "1px solid var(--rule)", padding: "5px 10px",
+              fontSize: 12, fontFamily: "var(--font-dm-mono, monospace)",
+              background: "var(--paper-2)", color: "var(--ink)",
+              outline: "none",
+            }}
           />
         </div>
       )}

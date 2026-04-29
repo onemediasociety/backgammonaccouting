@@ -17,11 +17,11 @@ function toTs(dateStr: string | null, endOfDay = false): number | undefined {
   return Math.floor(d.getTime() / 1000);
 }
 
-function BalancePill({ label, amount, currency }: { label: string; amount: number; currency: string }) {
+function KpiTile({ label, value }: { label: string; value: string }) {
   return (
-    <div className="text-center">
-      <p className="text-xs text-gray-500 uppercase tracking-wide">{label}</p>
-      <p className="text-lg font-semibold text-gray-900">{formatAmount(amount, currency)}</p>
+    <div className="bs-card" style={{ padding: "20px 24px" }}>
+      <p className="bs-label" style={{ marginBottom: 6 }}>{label}</p>
+      <p className="bs-mono" style={{ fontSize: 22, fontWeight: 600, color: "var(--ink)" }}>{value}</p>
     </div>
   );
 }
@@ -39,7 +39,6 @@ export default async function DashboardPage({
   const fromTs = toTs(range.from);
   const toTs_ = toTs(range.to, true);
 
-  // For chart: always fetch last 6 months regardless of filter
   const sixMonthsAgo = new Date();
   sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
   const chartFromTs = Math.floor(sixMonthsAgo.getTime() / 1000);
@@ -68,7 +67,6 @@ export default async function DashboardPage({
     error = e instanceof Error ? e.message : "Failed to load data";
   }
 
-  // Fetch fees separately so a failure doesn't blank out the main data
   try {
     feesByClub = await fetchFeesByClub(fromTs, toTs_);
     feesAvailable = true;
@@ -79,14 +77,11 @@ export default async function DashboardPage({
   const grandTotalUSD = summaries
     ?.filter((s) => s.club.currency === "usd")
     .reduce((sum, s) => sum + s.totalCents, 0) ?? 0;
-
   const totalTransactions = summaries?.reduce((sum, s) => sum + s.successCount, 0) ?? 0;
 
   const periodLabel = range.from && range.to
     ? `${range.from} – ${range.to}`
-    : range.period === "all" || !range.period
-    ? "All Time"
-    : "";
+    : range.period === "all" || !range.period ? "All Time" : "";
 
   const monthlyBars = allPaymentsForChart && cashEntriesForChart
     ? buildMonthlyRevenue(allPaymentsForChart, cashEntriesForChart, 6)
@@ -94,17 +89,22 @@ export default async function DashboardPage({
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">🎲 The Backgammon Society</h1>
-        <p className="mt-1 text-gray-500">Accounting Dashboard — All Clubs</p>
+      {/* Page header */}
+      <div style={{ marginBottom: 28 }}>
+        <h1 className="bs-heading" style={{ fontSize: 32, marginBottom: 4 }}>
+          The Backgammon Society
+        </h1>
+        <p className="bs-mono" style={{ fontSize: 11, color: "var(--ink-3)", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+          Accounting Dashboard · All Clubs
+        </p>
       </div>
 
       {/* Date filter */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 mb-6">
-        <div className="flex items-center gap-3 mb-3">
-          <span className="text-sm font-semibold text-gray-600">Period:</span>
+      <div className="bs-card" style={{ padding: "16px 20px", marginBottom: 24 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+          <span className="bs-label">Period</span>
           {periodLabel && (
-            <span className="text-sm text-gray-400">{periodLabel}</span>
+            <span className="bs-mono" style={{ fontSize: 11, color: "var(--ink-3)" }}>{periodLabel}</span>
           )}
         </div>
         <Suspense fallback={null}>
@@ -112,30 +112,38 @@ export default async function DashboardPage({
         </Suspense>
       </div>
 
-      {error ? (
-        <div className="rounded-lg bg-red-50 border border-red-200 p-6 mb-8">
-          <h2 className="text-red-800 font-semibold mb-1">Stripe Connection Error</h2>
-          <p className="text-red-700 text-sm">{error}</p>
-          <p className="text-red-600 text-sm mt-2">
-            Make sure <code className="bg-red-100 px-1 rounded">STRIPE_SECRET_KEY</code> is set in{" "}
-            <code className="bg-red-100 px-1 rounded">.env.local</code> (or Vercel env vars).
+      {error && (
+        <div style={{
+          background: "rgba(139,26,26,0.07)", border: "1px solid rgba(139,26,26,0.2)",
+          borderRadius: 10, padding: "16px 20px", marginBottom: 24,
+        }}>
+          <p style={{ fontWeight: 600, color: "var(--burgundy)", marginBottom: 4 }}>Stripe Connection Error</p>
+          <p style={{ fontSize: 13, color: "var(--ink-2)" }}>{error}</p>
+          <p style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 6 }}>
+            Ensure <code style={{ background: "rgba(0,0,0,0.06)", padding: "1px 5px", borderRadius: 3 }}>STRIPE_SECRET_KEY</code> is set.
           </p>
         </div>
-      ) : null}
+      )}
 
       {/* Stripe balance */}
       {balance && (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 mb-6">
-          <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-4">
-            Stripe Account Balance (live — not period-filtered)
-          </h2>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 divide-x divide-gray-100">
+        <div className="bs-card" style={{ padding: "18px 24px", marginBottom: 24 }}>
+          <p className="bs-label" style={{ marginBottom: 14 }}>Stripe Account Balance · Live</p>
+          <div style={{ display: "flex", gap: 32, flexWrap: "wrap" }}>
             {balance.available.map((b) => (
-              <BalancePill key={b.currency + "av"} label={`Available (${b.currency.toUpperCase()})`} amount={b.amount} currency={b.currency} />
+              <div key={b.currency + "av"}>
+                <p className="bs-label" style={{ marginBottom: 4, color: "var(--bs-green, #1f4d3a)" }}>
+                  Available · {b.currency.toUpperCase()}
+                </p>
+                <p className="bs-amount" style={{ fontSize: 18 }}>{formatAmount(b.amount, b.currency)}</p>
+              </div>
             ))}
             {balance.pending.map((b) =>
               b.amount > 0 ? (
-                <BalancePill key={b.currency + "pe"} label={`Pending (${b.currency.toUpperCase()})`} amount={b.amount} currency={b.currency} />
+                <div key={b.currency + "pe"}>
+                  <p className="bs-label" style={{ marginBottom: 4 }}>Pending · {b.currency.toUpperCase()}</p>
+                  <p className="bs-amount bs-amount-dim" style={{ fontSize: 18 }}>{formatAmount(b.amount, b.currency)}</p>
+                </div>
               ) : null
             )}
           </div>
@@ -144,29 +152,25 @@ export default async function DashboardPage({
 
       {/* KPI strip */}
       {summaries && (
-        <div className="grid grid-cols-3 gap-4 mb-6">
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 text-center">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Total USD Revenue</p>
-            <p className="text-2xl font-bold text-gray-900 mt-1">{formatAmount(grandTotalUSD, "usd")}</p>
-          </div>
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 text-center">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Stripe Transactions</p>
-            <p className="text-2xl font-bold text-gray-900 mt-1">{totalTransactions}</p>
-          </div>
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 text-center">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Active Clubs</p>
-            <p className="text-2xl font-bold text-gray-900 mt-1">{CLUBS.length}</p>
-          </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 24 }}>
+          <KpiTile label="Total USD Revenue" value={formatAmount(grandTotalUSD, "usd")} />
+          <KpiTile label="Stripe Transactions" value={totalTransactions.toString()} />
+          <KpiTile label="Active Clubs" value={CLUBS.length.toString()} />
         </div>
       )}
 
-      {/* Revenue chart (last 6 months, always) */}
+      {/* Revenue chart */}
       {monthlyBars.length > 0 && (
-        <RevenueChart months={monthlyBars} currency="usd" />
+        <div style={{ marginBottom: 28 }}>
+          <RevenueChart months={monthlyBars} currency="usd" />
+        </div>
       )}
 
-      <h2 className="text-lg font-semibold text-gray-700 mb-4">Clubs</h2>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+      {/* Club cards */}
+      <div style={{ marginBottom: 16 }}>
+        <h2 className="bs-heading" style={{ fontSize: 20 }}>Clubs</h2>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16 }}>
         {CLUBS.map((club) => {
           const summary = summaries?.find((s) => s.club.slug === club.slug);
           const cashTotal = cashTotals[club.slug] ?? 0;

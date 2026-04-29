@@ -58,50 +58,38 @@ export default async function ClubPage({
     stripeError = e instanceof Error ? e.message : "Stripe error";
   }
 
-  const cashEntries = getCashEntriesForClub(
-    club.slug,
-    range.from ?? undefined,
-    range.to ?? undefined
-  );
+  const cashEntries = getCashEntriesForClub(club.slug, range.from ?? undefined, range.to ?? undefined);
+  const expenses = getExpensesForClub(club.slug, range.from ?? undefined, range.to ?? undefined);
 
-  const expenses = getExpensesForClub(
-    club.slug,
-    range.from ?? undefined,
-    range.to ?? undefined
-  );
-
-  const stripeTotal =
-    stripePayments
-      ?.filter((p) => p.status === "succeeded")
-      .reduce((s, p) => s + p.amount, 0) ?? 0;
-
+  const stripeTotal = stripePayments?.filter((p) => p.status === "succeeded").reduce((s, p) => s + p.amount, 0) ?? 0;
   const cashTotal = cashEntries.reduce((s, e) => s + e.totalAmount, 0);
   const expenseTotal = expenses.reduce((s, e) => s + e.amountCents, 0);
   const stripeCount = stripePayments?.filter((p) => p.status === "succeeded").length ?? 0;
   const netIncome = stripeTotal + cashTotal - expenseTotal;
 
-  const periodLabel =
-    range.from && range.to
-      ? `${range.from} – ${range.to}`
-      : range.period === "all" || !range.period
-      ? "All Time"
-      : range.period;
+  const periodLabel = range.from && range.to
+    ? `${range.from} – ${range.to}`
+    : range.period === "all" || !range.period ? "All Time" : range.period;
 
   return (
     <div>
-      <div className="mb-6 flex items-center gap-2 text-sm text-gray-500">
-        <Link href="/" className="hover:text-gray-900">Dashboard</Link>
-        <span>/</span>
-        <span className="text-gray-900 font-medium">{club.name}</span>
+      {/* Breadcrumb */}
+      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 20, fontSize: 12, color: "var(--ink-3)" }}>
+        <Link href="/" style={{ color: "var(--ink-3)", textDecoration: "none" }} className="hover-underline">Dashboard</Link>
+        <span style={{ opacity: 0.4 }}>/</span>
+        <span style={{ color: "var(--ink-2)", fontWeight: 500 }}>{club.name}</span>
       </div>
 
-      <div className={`rounded-xl ${club.accentBg} border border-gray-200 p-6 mb-6`}>
-        <div className="flex items-center justify-between flex-wrap gap-4">
-          <div className="flex items-center gap-4">
-            <span className="text-5xl">{club.flag}</span>
+      {/* Club header */}
+      <div className="bs-card" style={{ padding: "24px", marginBottom: 24 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+            <span style={{ fontSize: 44 }}>{club.flag}</span>
             <div>
-              <h1 className={`text-2xl font-bold ${club.accentText}`}>{club.name}</h1>
-              <p className="text-gray-600">{club.city} · {club.currency.toUpperCase()}</p>
+              <h1 className="bs-heading" style={{ fontSize: 26, marginBottom: 2 }}>{club.name}</h1>
+              <p className="bs-mono" style={{ fontSize: 11, color: "var(--ink-3)", letterSpacing: "0.06em" }}>
+                {club.city} · {club.currency.toUpperCase()}
+              </p>
             </div>
           </div>
           <ExportButtons
@@ -115,84 +103,104 @@ export default async function ClubPage({
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 mb-6">
-        <div className="flex items-center gap-3 mb-3">
-          <span className="text-sm font-semibold text-gray-600">Period:</span>
-          <span className="text-sm text-gray-400">{periodLabel}</span>
+      {/* Date filter */}
+      <div className="bs-card" style={{ padding: "16px 20px", marginBottom: 24 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+          <span className="bs-label">Period</span>
+          <span className="bs-mono" style={{ fontSize: 11, color: "var(--ink-3)" }}>{periodLabel}</span>
         </div>
         <Suspense fallback={null}>
           <DateFilter />
         </Suspense>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-8">
-        <Kpi label="Stripe Revenue" value={formatAmount(stripeTotal, club.currency)} />
-        <Kpi label="Stripe Transactions" value={stripeCount.toString()} />
-        <Kpi label="Cash Buy-ins" value={formatAmount(cashTotal, club.currency)} />
-        <Kpi label="Expenses" value={formatAmount(expenseTotal, club.currency)} color="red" />
-        <Kpi label="Net Income" value={formatAmount(netIncome, club.currency)} highlight color={netIncome >= 0 ? "green" : "red"} />
+      {/* KPI strip */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12, marginBottom: 24 }}>
+        <div className="bs-kpi-grid" style={{ display: "contents" }}>
+          <Kpi label="Stripe Revenue" value={formatAmount(stripeTotal, club.currency)} />
+          <Kpi label="Stripe Txns" value={stripeCount.toString()} />
+          <Kpi label="Cash Buy-ins" value={formatAmount(cashTotal, club.currency)} />
+          <Kpi label="Expenses" value={formatAmount(expenseTotal, club.currency)} color="burgundy" />
+        </div>
+      </div>
+      {/* Net income — full width */}
+      <div className="bs-card" style={{
+        padding: "18px 24px", marginBottom: 28,
+        background: netIncome >= 0 ? "var(--bs-green, #1f4d3a)" : "var(--burgundy, #8b1a1a)",
+        border: "none",
+      }}>
+        <p className="bs-label" style={{ color: "rgba(255,255,255,0.6)", marginBottom: 6 }}>Net Income</p>
+        <p className="bs-mono" style={{ fontSize: 28, fontWeight: 700, color: "#fff" }}>
+          {formatAmount(netIncome, club.currency)}
+        </p>
       </div>
 
-      <section className="mb-10">
-        <h2 className="text-lg font-semibold text-gray-800 mb-3">Stripe Payments</h2>
-        {club.matchFn(0, club.currency) === false && club.slug === "dc" ? (
-          <div className="rounded-lg bg-amber-50 border border-amber-200 p-4 text-amber-800 text-sm">
-            <strong>No Stripe product exists for DC yet.</strong> All online $26 payments are currently
-            attributed to NYC. Create a separate DC product + payment link in Stripe, then update{" "}
-            <code className="bg-amber-100 px-1 rounded">lib/clubs.ts</code> to match it.
-          </div>
-        ) : stripeError ? (
-          <div className="rounded-lg bg-red-50 border border-red-200 p-4 text-red-700 text-sm">
-            {stripeError} — ensure{" "}
-            <code className="bg-red-100 px-1 rounded">STRIPE_SECRET_KEY</code> is set in Vercel env vars.
+      {/* Stripe */}
+      <section style={{ marginBottom: 36 }}>
+        <h2 className="bs-heading" style={{ fontSize: 19, marginBottom: 14 }}>Stripe Payments</h2>
+        {stripeError ? (
+          <div style={{
+            background: "rgba(139,26,26,0.07)", border: "1px solid rgba(139,26,26,0.2)",
+            borderRadius: 10, padding: "14px 18px", fontSize: 13, color: "var(--burgundy)",
+          }}>
+            {stripeError} — ensure <code style={{ background: "rgba(0,0,0,0.06)", padding: "1px 5px", borderRadius: 3 }}>STRIPE_SECRET_KEY</code> is set.
           </div>
         ) : (
           <TransactionTable payments={stripePayments ?? []} currency={club.currency} />
         )}
       </section>
 
-      <section className="mb-10">
-        <h2 className="text-lg font-semibold text-gray-800 mb-3">Cash Buy-ins</h2>
+      {/* Cash */}
+      <section style={{ marginBottom: 36 }}>
+        <h2 className="bs-heading" style={{ fontSize: 19, marginBottom: 14 }}>Cash Buy-ins</h2>
         <AddCashForm clubSlug={club.slug} currency={club.currency} />
-        <div className="mt-4">
+        <div style={{ marginTop: 16 }}>
           <CashTable entries={cashEntries} currency={club.currency} />
         </div>
       </section>
 
-      <section className="mb-10">
-        <h2 className="text-lg font-semibold text-gray-800 mb-3">Expenses</h2>
+      {/* Expenses */}
+      <section style={{ marginBottom: 36 }}>
+        <h2 className="bs-heading" style={{ fontSize: 19, marginBottom: 14 }}>Expenses</h2>
         <AddExpenseForm clubSlug={club.slug} currency={club.currency} />
-        <div className="mt-4">
+        <div style={{ marginTop: 16 }}>
           <ExpenseTable entries={expenses} currency={club.currency} />
         </div>
       </section>
 
+      {/* Revenue Split */}
       {split && (
-        <section className="mb-10">
-          <h2 className="text-lg font-semibold text-gray-800 mb-3">Revenue Split</h2>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
-              <p className="text-xs font-semibold text-blue-500 uppercase tracking-wide mb-1">
-                Global Owner ({split.ownerPct}%)
+        <section style={{ marginBottom: 36 }}>
+          <h2 className="bs-heading" style={{ fontSize: 19, marginBottom: 14 }}>Revenue Split</h2>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+            {/* Owner */}
+            <div className="bs-card" style={{ padding: "18px 22px" }}>
+              <p className="bs-label" style={{ marginBottom: 6, color: "var(--brass)" }}>
+                Global Owner · {split.ownerPct}%
               </p>
-              <p className="text-2xl font-bold text-blue-700">
+              <p className="bs-mono" style={{ fontSize: 22, fontWeight: 700, color: "var(--ink)" }}>
                 {formatAmount(Math.round(netIncome * split.ownerPct / 100), club.currency)}
               </p>
             </div>
-            <div className={`rounded-xl border p-4 ${split.adminPct > 0 ? "border-green-200 bg-green-50" : "border-gray-200 bg-gray-50"}`}>
-              <p className={`text-xs font-semibold uppercase tracking-wide mb-1 ${split.adminPct > 0 ? "text-green-500" : "text-gray-400"}`}>
-                {session?.role === "club_admin" ? "Your Share" : "Club Admin"} ({split.adminPct}%)
+            {/* Admin */}
+            <div className="bs-card" style={{
+              padding: "18px 22px",
+              background: split.adminPct > 0 ? "var(--bs-green, #1f4d3a)" : "var(--paper-2)",
+              border: split.adminPct > 0 ? "none" : "1px solid var(--rule)",
+            }}>
+              <p className="bs-label" style={{ marginBottom: 6, color: split.adminPct > 0 ? "rgba(255,255,255,0.55)" : "var(--ink-3)" }}>
+                {session?.role === "club_admin" ? "Your Share" : "Club Admin"} · {split.adminPct}%
               </p>
-              <p className={`text-2xl font-bold ${split.adminPct > 0 ? "text-green-700" : "text-gray-400"}`}>
+              <p className="bs-mono" style={{ fontSize: 22, fontWeight: 700, color: split.adminPct > 0 ? "#fff" : "var(--ink-3)" }}>
                 {formatAmount(Math.round(netIncome * split.adminPct / 100), club.currency)}
               </p>
             </div>
           </div>
-          <p className="text-xs text-gray-400 mt-2">
+          <p style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 10 }}>
             Based on net income of {formatAmount(netIncome, club.currency)}.
-            {split.adminPct === 0 && " This club's revenue goes fully to the global owner."}
+            {split.adminPct === 0 && " Revenue goes fully to the global owner."}
             {session?.role === "super_admin" && (
-              <Link href="/admin/splits" className="ml-2 text-blue-500 hover:underline">
+              <Link href="/admin/splits" style={{ color: "var(--brass)", marginLeft: 8, textDecoration: "none" }}>
                 Edit splits →
               </Link>
             )}
@@ -206,36 +214,25 @@ export default async function ClubPage({
 function Kpi({
   label,
   value,
-  highlight = false,
   color = "default",
 }: {
   label: string;
   value: string;
-  highlight?: boolean;
-  color?: "default" | "red" | "green";
+  color?: "default" | "burgundy" | "green";
 }) {
-  const bg = highlight
-    ? color === "green"
-      ? "bg-green-600 border-green-700 text-white"
-      : color === "red"
-      ? "bg-red-600 border-red-700 text-white"
-      : "bg-brand-500 border-brand-600 text-white"
-    : "bg-white border-gray-200";
-  const labelCls = highlight ? "text-white/70" : "text-gray-400";
-  const valueCls = highlight
-    ? "text-white"
-    : color === "red"
-    ? "text-red-600"
-    : color === "green"
-    ? "text-green-600"
-    : "text-gray-900";
-
   return (
-    <div className={`rounded-xl border p-4 ${bg}`}>
-      <p className={`text-xs font-semibold uppercase tracking-wide mb-1 ${labelCls}`}>
-        {label}
+    <div className="bs-card" style={{ padding: "16px 20px" }}>
+      <p className="bs-label" style={{ marginBottom: 6 }}>{label}</p>
+      <p
+        className="bs-mono"
+        style={{
+          fontSize: 18,
+          fontWeight: 600,
+          color: color === "burgundy" ? "var(--burgundy)" : color === "green" ? "var(--bs-green, #1f4d3a)" : "var(--ink)",
+        }}
+      >
+        {value}
       </p>
-      <p className={`text-xl font-bold ${valueCls}`}>{value}</p>
     </div>
   );
 }

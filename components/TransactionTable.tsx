@@ -3,13 +3,6 @@
 import { formatAmount } from "@/lib/clubs";
 import type { PaymentRecord } from "@/lib/stripe-client";
 
-const STATUS_STYLE: Record<string, string> = {
-  succeeded: "bg-green-100 text-green-700",
-  canceled: "bg-gray-100 text-gray-500",
-  requires_payment_method: "bg-yellow-100 text-yellow-700",
-  processing: "bg-blue-100 text-blue-700",
-};
-
 interface Props {
   payments: PaymentRecord[];
   currency: string;
@@ -18,54 +11,53 @@ interface Props {
 export default function TransactionTable({ payments, currency }: Props) {
   if (payments.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed border-gray-200 p-8 text-center text-gray-400 text-sm">
-        No Stripe payments found for this club.
+      <div style={{
+        border: "1px dashed var(--rule)", borderRadius: 10, padding: "32px",
+        textAlign: "center", color: "var(--ink-3)", fontSize: 13,
+      }}>
+        No Stripe payments found for this period.
       </div>
     );
   }
 
   return (
-    <div className="rounded-xl border border-gray-200 overflow-hidden">
-      <table className="w-full text-sm">
-        <thead className="bg-gray-50 border-b border-gray-200">
+    <div className="bs-card" style={{ overflow: "hidden" }}>
+      <table className="bs-table">
+        <thead>
           <tr>
-            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
-              Date
-            </th>
-            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
-              Amount
-            </th>
-            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
-              Status
-            </th>
-            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide hidden sm:table-cell">
-              Payment ID
-            </th>
+            <th>Date</th>
+            <th>Description</th>
+            <th style={{ textAlign: "right" }}>Amount</th>
+            <th>Status</th>
+            <th style={{ fontSize: 9 }}>ID</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-100 bg-white">
+        <tbody>
           {payments.map((p) => (
-            <tr key={p.id} className="hover:bg-gray-50">
-              <td className="px-4 py-3 text-gray-700">
+            <tr key={p.id}>
+              <td className="bs-mono" style={{ fontSize: 12 }}>
                 {new Date(p.created * 1000).toLocaleDateString("en-US", {
-                  year: "numeric",
-                  month: "short",
-                  day: "numeric",
+                  year: "numeric", month: "short", day: "numeric",
                 })}
               </td>
-              <td className="px-4 py-3 font-medium text-gray-900">
+              <td style={{ fontSize: 13, color: "var(--ink-2)" }}>
+                {p.description ?? "Online buy-in"}
+              </td>
+              <td className="bs-amount" style={{ textAlign: "right", fontSize: 13 }}>
                 {formatAmount(p.amount, p.currency)}
               </td>
-              <td className="px-4 py-3">
-                <span
-                  className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                    STATUS_STYLE[p.status] ?? "bg-gray-100 text-gray-600"
-                  }`}
-                >
+              <td>
+                <span style={{
+                  display: "inline-block",
+                  padding: "2px 8px", borderRadius: 20,
+                  fontFamily: "var(--font-dm-mono, monospace)", fontSize: 10, letterSpacing: "0.04em",
+                  background: p.status === "succeeded" ? "rgba(31,77,58,0.1)" : "rgba(0,0,0,0.05)",
+                  color: p.status === "succeeded" ? "var(--bs-green, #1f4d3a)" : "var(--ink-3)",
+                }}>
                   {p.status}
                 </span>
               </td>
-              <td className="px-4 py-3 text-gray-400 font-mono text-xs hidden sm:table-cell">
+              <td className="bs-mono" style={{ fontSize: 10, color: "var(--ink-3)" }}>
                 {p.id}
               </td>
             </tr>

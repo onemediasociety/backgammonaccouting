@@ -1,9 +1,9 @@
 import { formatAmount } from "@/lib/clubs";
 
 interface MonthBar {
-  label: string;   // "Jan", "Feb", …
-  stripe: number;  // cents
-  cash: number;    // cents
+  label: string;
+  stripe: number;
+  cash: number;
 }
 
 interface Props {
@@ -11,29 +11,38 @@ interface Props {
   currency: string;
 }
 
-const BAR_H = 160;
-const BAR_W = 32;
-const GAP = 16;
-const LABEL_H = 20;
-const SVG_H = BAR_H + LABEL_H + 8;
+const BAR_H = 140;
+const BAR_W = 36;
+const GAP = 18;
+const LABEL_H = 22;
+const SVG_H = BAR_H + LABEL_H + 12;
 
 export default function RevenueChart({ months, currency }: Props) {
   if (months.length === 0) return null;
 
   const maxVal = Math.max(...months.map((m) => m.stripe + m.cash), 1);
-
   const totalW = months.length * (BAR_W + GAP) - GAP;
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 mb-6">
-      <h2 className="text-sm font-semibold text-gray-600 uppercase tracking-wide mb-4">
-        Monthly Revenue
-      </h2>
-      <div className="overflow-x-auto">
+    <div className="bs-card" style={{ padding: "20px 24px", marginBottom: 24 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+        <p className="bs-label">Monthly Revenue · Last 6 Months</p>
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            <div style={{ width: 10, height: 10, borderRadius: 2, background: "var(--brass)" }} />
+            <span className="bs-mono" style={{ fontSize: 10, color: "var(--ink-3)" }}>Stripe</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            <div style={{ width: 10, height: 10, borderRadius: 2, background: "var(--bs-green, #1f4d3a)" }} />
+            <span className="bs-mono" style={{ fontSize: 10, color: "var(--ink-3)" }}>Cash</span>
+          </div>
+        </div>
+      </div>
+      <div style={{ overflowX: "auto" }}>
         <svg
           width={totalW}
           height={SVG_H}
-          className="block min-w-full"
+          style={{ display: "block", minWidth: "100%" }}
           aria-label="Monthly revenue bar chart"
         >
           {months.map((m, i) => {
@@ -45,6 +54,18 @@ export default function RevenueChart({ months, currency }: Props) {
 
             return (
               <g key={m.label} transform={`translate(${x}, 0)`}>
+                {/* Cash portion (top) */}
+                {cashH > 0 && (
+                  <rect
+                    x={0}
+                    y={BAR_H - totalH}
+                    width={BAR_W}
+                    height={cashH}
+                    rx={totalH > 4 ? 3 : 0}
+                    fill="#1f4d3a"
+                    fillOpacity={0.75}
+                  />
+                )}
                 {/* Stripe portion (bottom) */}
                 {stripeH > 0 && (
                   <rect
@@ -52,40 +73,24 @@ export default function RevenueChart({ months, currency }: Props) {
                     y={BAR_H - stripeH}
                     width={BAR_W}
                     height={stripeH}
-                    rx={3}
-                    fill="#3b82f6"
+                    rx={stripeH > 4 ? 3 : 0}
+                    fill="#b89042"
+                    fillOpacity={0.85}
                   />
                 )}
-                {/* Cash portion (top of stripe) */}
-                {cashH > 0 && (
-                  <rect
-                    x={0}
-                    y={BAR_H - totalH}
-                    width={BAR_W}
-                    height={cashH}
-                    rx={3}
-                    fill="#10b981"
-                  />
-                )}
-                {/* Empty bar placeholder */}
+                {/* Empty placeholder */}
                 {total === 0 && (
-                  <rect
-                    x={0}
-                    y={BAR_H - 2}
-                    width={BAR_W}
-                    height={2}
-                    rx={1}
-                    fill="#e5e7eb"
-                  />
+                  <rect x={0} y={BAR_H - 2} width={BAR_W} height={2} rx={1} fill="var(--rule)" />
                 )}
-                {/* Total label above bar */}
+                {/* Amount label above */}
                 {total > 0 && (
                   <text
                     x={BAR_W / 2}
-                    y={BAR_H - totalH - 4}
+                    y={BAR_H - totalH - 5}
                     textAnchor="middle"
                     fontSize={9}
-                    fill="#6b7280"
+                    fontFamily="var(--font-dm-mono, monospace)"
+                    fill="var(--ink-3)"
                   >
                     {formatAmount(total, currency)}
                   </text>
@@ -96,7 +101,8 @@ export default function RevenueChart({ months, currency }: Props) {
                   y={BAR_H + LABEL_H}
                   textAnchor="middle"
                   fontSize={11}
-                  fill="#9ca3af"
+                  fontFamily="var(--font-dm-mono, monospace)"
+                  fill="var(--ink-3)"
                 >
                   {m.label}
                 </text>
@@ -104,17 +110,6 @@ export default function RevenueChart({ months, currency }: Props) {
             );
           })}
         </svg>
-      </div>
-      {/* Legend */}
-      <div className="flex items-center gap-4 mt-3">
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded-sm bg-blue-500" />
-          <span className="text-xs text-gray-500">Stripe</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded-sm bg-emerald-500" />
-          <span className="text-xs text-gray-500">Cash</span>
-        </div>
       </div>
     </div>
   );
