@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getClub, formatAmount } from "@/lib/clubs";
-import { fetchPaymentsForClub } from "@/lib/stripe-client";
+import { fetchPaymentsForClub, fetchFeesByClub } from "@/lib/stripe-client";
 import { getCashEntriesForClub } from "@/lib/cash-store";
 import { getExpensesForClub } from "@/lib/expenses-store";
 import { getSplitForClub } from "@/lib/splits-store";
@@ -52,11 +52,20 @@ export default async function ClubPage({
 
   let stripePayments = null;
   let stripeError: string | null = null;
+  let stripeFees = 0;
+  let feesAvailable = false;
   try {
-    stripePayments = await fetchPaymentsForClub(club.slug, fromTs, toTs_);
+    [stripePayments] = await Promise.all([
+      fetchPaymentsForClub(club.slug, fromTs, toTs_),
+    ]);
   } catch (e: unknown) {
     stripeError = e instanceof Error ? e.message : "Stripe error";
   }
+  try {
+    const feesByClub = await fetchFeesByClub(fromTs, toTs_);
+    stripeFees = feesByClub[club.slug] ?? 0;
+    feesAvailable = true;
+  } catch { /* fees unavailable */ }
 
   const cashEntries = getCashEntriesForClub(club.slug, range.from ?? undefined, range.to ?? undefined);
   const expenses = getExpensesForClub(club.slug, range.from ?? undefined, range.to ?? undefined);
@@ -65,7 +74,8 @@ export default async function ClubPage({
   const cashTotal = cashEntries.reduce((s, e) => s + e.totalAmount, 0);
   const expenseTotal = expenses.reduce((s, e) => s + e.amountCents, 0);
   const stripeCount = stripePayments?.filter((p) => p.status === "succeeded").length ?? 0;
-  const netIncome = stripeTotal + cashTotal - expenseTotal;
+  const grossProfit = stripeTotal + cashTotal;
+  const netIncome = grossProfit - stripeFees;
 
   const periodLabel = range.from && range.to
     ? `${range.from} – ${range.to}`
@@ -115,21 +125,24 @@ export default async function ClubPage({
       </div>
 
       {/* KPI strip */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12, marginBottom: 24 }}>
-        <div className="bs-kpi-grid" style={{ display: "contents" }}>
-          <Kpi label="Stripe Revenue" value={formatAmount(stripeTotal, club.currency)} />
-          <Kpi label="Stripe Txns" value={stripeCount.toString()} />
-          <Kpi label="Cash Buy-ins" value={formatAmount(cashTotal, club.currency)} />
-          <Kpi label="Expenses" value={formatAmount(expenseTotal, club.currency)} color="burgundy" />
-        </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 12 }}>
+        <Kpi label="Stripe Revenue" value={formatAmount(stripeTotal, club.currency)} sub={`${stripeCount} txns`} />
+        <Kpi label="Cash Buy-ins" value={formatAmount(cashTotal, club.currency)} />
+        <Kpi label="Gross Profit" value={formatAmount(grossProfit, club.currency)} />
       </div>
-      {/* Net income — full width */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12, marginBottom: 24 }}>
+        <Kpi label="Stripe Fees" value={feesAvailable ? `(${formatAmount(stripeFees, club.currency)})` : "—"} color="burgundy" sub={feesAvailable ? "deducted from net" : "unavailable"} />
+        <Kpi label="Tracked Expenses" value={formatAmount(expenseTotal, club.currency)} color="burgundy" sub="not included in net" />
+      </div>
+      {/* Net profit — full width */}
       <div className="bs-card" style={{
         padding: "18px 24px", marginBottom: 28,
         background: netIncome >= 0 ? "var(--bs-green, #1f4d3a)" : "var(--burgundy, #8b1a1a)",
         border: "none",
       }}>
-        <p className="bs-label" style={{ color: "rgba(255,255,255,0.6)", marginBottom: 6 }}>Net Income</p>
+        <p className="bs-label" style={{ color: "rgba(255,255,255,0.6)", marginBottom: 6 }}>
+          Net Profit {feesAvailable ? "(Gross − Stripe Fees)" : "(Gross, fees unavailable)"}
+        </p>
         <p className="bs-mono" style={{ fontSize: 28, fontWeight: 700, color: "#fff" }}>
           {formatAmount(netIncome, club.currency)}
         </p>
@@ -197,7 +210,7 @@ export default async function ClubPage({
             </div>
           </div>
           <p style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 10 }}>
-            Based on net income of {formatAmount(netIncome, club.currency)}.
+            Based on net profit of {formatAmount(netIncome, club.currency)} (Stripe + Cash − Stripe Fees).
             {split.adminPct === 0 && " Revenue goes fully to the global owner."}
             {session?.role === "super_admin" && (
               <Link href="/admin/splits" style={{ color: "var(--brass)", marginLeft: 8, textDecoration: "none" }}>
@@ -214,10 +227,12 @@ export default async function ClubPage({
 function Kpi({
   label,
   value,
+  sub,
   color = "default",
 }: {
   label: string;
   value: string;
+  sub?: string;
   color?: "default" | "burgundy" | "green";
 }) {
   return (
@@ -233,6 +248,7 @@ function Kpi({
       >
         {value}
       </p>
+      {sub && <p className="bs-mono" style={{ fontSize: 10, color: "var(--ink-3)", marginTop: 3 }}>{sub}</p>}
     </div>
   );
 }

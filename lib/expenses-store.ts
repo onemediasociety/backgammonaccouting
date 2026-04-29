@@ -37,7 +37,9 @@ function readStore(): Expense[] {
 }
 
 function writeStore(entries: Expense[]): void {
-  fs.writeFileSync(TMP_FILE, JSON.stringify(entries, null, 2));
+  const json = JSON.stringify(entries, null, 2);
+  fs.writeFileSync(TMP_FILE, json);
+  try { fs.writeFileSync(SEED_FILE, json); } catch { /* read-only on some deployments */ }
 }
 
 function filterByDate(entries: Expense[], from?: string, to?: string): Expense[] {

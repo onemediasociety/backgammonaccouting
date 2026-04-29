@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { CLUBS, formatAmount } from "@/lib/clubs";
-import { buildClubSummaries } from "@/lib/stripe-client";
+import { buildClubSummaries, fetchFeesByClub } from "@/lib/stripe-client";
 import { getCashTotalsPerClub } from "@/lib/cash-store";
 import { getExpenseTotalsPerClub } from "@/lib/expenses-store";
 import DateFilter from "@/components/DateFilter";
@@ -31,10 +31,15 @@ export default async function ReportsPage({
   const toTs_ = toTs(range.to, true);
 
   let summaries = null;
+  let feesByClub: Record<string, number> = {};
+  let feesAvailable = false;
   let error: string | null = null;
 
   try {
-    summaries = await buildClubSummaries(fromTs, toTs_);
+    [summaries, feesByClub] = await Promise.all([
+      buildClubSummaries(fromTs, toTs_),
+      fetchFeesByClub(fromTs, toTs_).then((f) => { feesAvailable = true; return f; }).catch(() => ({})),
+    ]);
   } catch (e: unknown) {
     error = e instanceof Error ? e.message : "Stripe error";
   }
@@ -50,15 +55,16 @@ export default async function ReportsPage({
   const rows = CLUBS.map((club) => {
     const stripeCents = summaries?.find((s) => s.club.slug === club.slug)?.totalCents ?? 0;
     const cashCents = cashTotals[club.slug] ?? 0;
+    const feeCents = feesByClub[club.slug] ?? 0;
     const expenseCents = expenseTotals[club.slug] ?? 0;
-    const revenueCents = stripeCents + cashCents;
-    const netCents = revenueCents - expenseCents;
-    return { club, stripeCents, cashCents, revenueCents, expenseCents, netCents };
+    const grossCents = stripeCents + cashCents;
+    const netCents = grossCents - feeCents;
+    return { club, stripeCents, cashCents, grossCents, feeCents, expenseCents, netCents };
   });
 
-  const grandRevenue = rows.filter((r) => r.club.currency === "usd").reduce((s, r) => s + r.revenueCents, 0);
-  const grandExpenses = rows.filter((r) => r.club.currency === "usd").reduce((s, r) => s + r.expenseCents, 0);
-  const grandNet = grandRevenue - grandExpenses;
+  const grandGross = rows.filter((r) => r.club.currency === "usd").reduce((s, r) => s + r.grossCents, 0);
+  const grandFees = rows.filter((r) => r.club.currency === "usd").reduce((s, r) => s + r.feeCents, 0);
+  const grandNet = grandGross - grandFees;
 
   return (
     <div>
@@ -94,9 +100,9 @@ export default async function ReportsPage({
 
       {/* USD Summary KPIs */}
       <div className="grid grid-cols-3 gap-4 mb-8">
-        <KpiBox label="Total USD Revenue" value={formatAmount(grandRevenue, "usd")} />
-        <KpiBox label="Total USD Expenses" value={formatAmount(grandExpenses, "usd")} color="red" />
-        <KpiBox label="Net Income (USD)" value={formatAmount(grandNet, "usd")} color={grandNet >= 0 ? "green" : "red"} highlight />
+        <KpiBox label="Gross Profit (USD)" value={formatAmount(grandGross, "usd")} />
+        <KpiBox label="Stripe Fees (USD)" value={feesAvailable ? `(${formatAmount(grandFees, "usd")})` : "—"} color="red" />
+        <KpiBox label="Net Profit (USD)" value={formatAmount(grandNet, "usd")} color={grandNet >= 0 ? "green" : "red"} highlight />
       </div>
 
       {/* P&L Table */}
@@ -107,13 +113,13 @@ export default async function ReportsPage({
               <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Club</th>
               <th className="px-5 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Stripe</th>
               <th className="px-5 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Cash</th>
-              <th className="px-5 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Revenue</th>
-              <th className="px-5 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Expenses</th>
-              <th className="px-5 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Net</th>
+              <th className="px-5 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Gross Profit</th>
+              {feesAvailable && <th className="px-5 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Stripe Fees</th>}
+              <th className="px-5 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Net Profit</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {rows.map(({ club, stripeCents, cashCents, revenueCents, expenseCents, netCents }) => (
+            {rows.map(({ club, stripeCents, cashCents, grossCents, feeCents, netCents }) => (
               <tr key={club.slug} className="hover:bg-gray-50">
                 <td className="px-5 py-3">
                   <Link href={`/clubs/${club.slug}`} className="flex items-center gap-2 hover:text-blue-600">
@@ -124,8 +130,8 @@ export default async function ReportsPage({
                 </td>
                 <td className="px-5 py-3 text-right text-gray-700">{formatAmount(stripeCents, club.currency)}</td>
                 <td className="px-5 py-3 text-right text-gray-700">{formatAmount(cashCents, club.currency)}</td>
-                <td className="px-5 py-3 text-right font-semibold text-gray-900">{formatAmount(revenueCents, club.currency)}</td>
-                <td className="px-5 py-3 text-right text-red-600">{expenseCents > 0 ? `(${formatAmount(expenseCents, club.currency)})` : "—"}</td>
+                <td className="px-5 py-3 text-right font-semibold text-gray-900">{formatAmount(grossCents, club.currency)}</td>
+                {feesAvailable && <td className="px-5 py-3 text-right text-red-600">{feeCents > 0 ? `(${formatAmount(feeCents, club.currency)})` : "—"}</td>}
                 <td className={`px-5 py-3 text-right font-bold ${netCents >= 0 ? "text-green-600" : "text-red-600"}`}>
                   {formatAmount(netCents, club.currency)}
                 </td>
@@ -135,12 +141,13 @@ export default async function ReportsPage({
         </table>
       </div>
 
-      {/* Expense breakdown by category */}
+      {/* Tracked Expenses (informational only — not included in net profit) */}
       <section>
-        <h2 className="text-lg font-semibold text-gray-800 mb-4">Expenses by Club</h2>
+        <h2 className="text-lg font-semibold text-gray-800 mb-1">Tracked Expenses by Club</h2>
+        <p className="text-sm text-gray-400 mb-4">For reference only — expenses are not deducted from Net Profit.</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {rows.filter((r) => r.expenseCents > 0).map(({ club, expenseCents, revenueCents }) => {
-            const pct = revenueCents > 0 ? Math.round((expenseCents / revenueCents) * 100) : 0;
+          {rows.filter((r) => r.expenseCents > 0).map(({ club, expenseCents, grossCents }) => {
+            const pct = grossCents > 0 ? Math.round((expenseCents / grossCents) * 100) : 0;
             return (
               <div key={club.slug} className={`rounded-xl border border-gray-200 p-4 ${club.accentBg}`}>
                 <div className="flex items-center gap-2 mb-3">
@@ -153,14 +160,11 @@ export default async function ReportsPage({
                     <span className="font-semibold text-red-600">{formatAmount(expenseCents, club.currency)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">% of Revenue</span>
+                    <span className="text-gray-500">% of Gross</span>
                     <span className="font-semibold text-gray-700">{pct}%</span>
                   </div>
                   <div className="mt-2 h-1.5 rounded-full bg-gray-200 overflow-hidden">
-                    <div
-                      className="h-full bg-red-400 rounded-full"
-                      style={{ width: `${Math.min(pct, 100)}%` }}
-                    />
+                    <div className="h-full bg-red-400 rounded-full" style={{ width: `${Math.min(pct, 100)}%` }} />
                   </div>
                 </div>
               </div>
@@ -168,7 +172,7 @@ export default async function ReportsPage({
           })}
           {rows.every((r) => r.expenseCents === 0) && (
             <div className="col-span-3 rounded-lg border border-dashed border-gray-200 p-8 text-center text-gray-400 text-sm">
-              No expenses recorded yet. Go to a club page to add expenses.
+              No expenses recorded. Expenses are tracked on each club page.
             </div>
           )}
         </div>

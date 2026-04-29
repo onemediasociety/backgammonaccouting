@@ -129,7 +129,8 @@ export default async function DashboardPage({
     const club = CLUBS.find(c => c.slug === slug);
     return club?.currency === "usd" ? s + v : s;
   }, 0);
-  const netIncomeUSD = totalStripeUSD + totalCashUSD - totalExpensesUSD;
+  const grossProfitUSD = totalStripeUSD + totalCashUSD;
+  const netIncomeUSD = grossProfitUSD - totalFeesUSD;
   const totalTransactions = summaries?.reduce((s, c) => s + c.successCount, 0) ?? 0;
 
   const periodLabel = range.from && range.to
@@ -143,11 +144,13 @@ export default async function DashboardPage({
   // Sort clubs by net income for ranking
   const rankedClubs = CLUBS.map((club) => {
     const summary = summaries?.find(s => s.club.slug === club.slug);
+    const stripe = summary?.totalCents ?? 0;
     const cash = cashTotals[club.slug] ?? 0;
     const fees = feesByClub[club.slug] ?? 0;
     const expenses = expenseTotals[club.slug] ?? 0;
-    const net = (summary?.totalCents ?? 0) + cash - expenses;
-    return { club, stripeTotal: summary?.totalCents ?? 0, stripeCount: summary?.successCount ?? 0, cash, fees, expenses, net };
+    const gross = stripe + cash;
+    const net = gross - fees;
+    return { club, stripeTotal: stripe, stripeCount: summary?.successCount ?? 0, cash, fees, expenses, gross, net };
   }).sort((a, b) => b.net - a.net);
 
   return (
@@ -191,17 +194,17 @@ export default async function DashboardPage({
         </div>
       )}
 
-      {/* 4-column KPI grid */}
+      {/* KPI grid */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 20 }}>
-        <KpiCard label="Net Income (USD)" value={formatAmount(netIncomeUSD, "usd")} highlight />
+        <KpiCard label="Net Profit (USD)" value={formatAmount(netIncomeUSD, "usd")} highlight />
+        <KpiCard label="Gross Profit (USD)" value={formatAmount(grossProfitUSD, "usd")} sub="Stripe + Cash" />
         <KpiCard label="Stripe Revenue" value={formatAmount(totalStripeUSD, "usd")} sub={`${totalTransactions} transactions`} />
         <KpiCard label="Cash Buy-ins" value={formatAmount(totalCashUSD, "usd")} />
-        <KpiCard label="Stripe Fees" value={feesAvailable ? `(${formatAmount(totalFeesUSD, "usd")})` : "—"} sub={feesAvailable ? "deducted from net" : "unavailable"} />
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 24 }}>
-        <KpiCard label="Expenses (USD)" value={formatAmount(totalExpensesUSD, "usd")} />
+        <KpiCard label="Stripe Fees" value={feesAvailable ? `(${formatAmount(totalFeesUSD, "usd")})` : "—"} sub={feesAvailable ? "deducted from net" : "unavailable"} />
+        <KpiCard label="Tracked Expenses" value={formatAmount(totalExpensesUSD, "usd")} sub="not included in net" />
         <KpiCard label="Active Clubs" value={CLUBS.length.toString()} />
-        <KpiCard label="Stripe Net (USD)" value={feesAvailable ? formatAmount(totalStripeUSD - totalFeesUSD, "usd") : "—"} />
         <KpiCard label="Period" value={periodLabel} />
       </div>
 
@@ -224,14 +227,14 @@ export default async function DashboardPage({
               <th>Club</th>
               <th style={{ textAlign: "right" }}>Stripe</th>
               <th style={{ textAlign: "right" }}>Cash</th>
-              {feesAvailable && <th style={{ textAlign: "right" }}>Fees</th>}
-              <th style={{ textAlign: "right" }}>Expenses</th>
-              <th style={{ textAlign: "right" }}>Net Income</th>
+              <th style={{ textAlign: "right" }}>Gross Profit</th>
+              {feesAvailable && <th style={{ textAlign: "right" }}>Stripe Fees</th>}
+              <th style={{ textAlign: "right" }}>Net Profit</th>
               <th style={{ textAlign: "right" }}>Txns</th>
             </tr>
           </thead>
           <tbody>
-            {rankedClubs.map(({ club, stripeTotal, stripeCount, cash, fees, expenses, net }, i) => (
+            {rankedClubs.map(({ club, stripeTotal, stripeCount, cash, fees, gross, net }, i) => (
               <tr key={club.slug}>
                 <td className="bs-mono" style={{ fontSize: 11, color: "var(--ink-3)" }}>{i + 1}</td>
                 <td>
@@ -245,10 +248,8 @@ export default async function DashboardPage({
                 </td>
                 <td className="bs-amount" style={{ textAlign: "right", fontSize: 12 }}>{formatAmount(stripeTotal, club.currency)}</td>
                 <td className="bs-amount" style={{ textAlign: "right", fontSize: 12 }}>{formatAmount(cash, club.currency)}</td>
+                <td className="bs-amount" style={{ textAlign: "right", fontSize: 12, fontWeight: 600 }}>{formatAmount(gross, club.currency)}</td>
                 {feesAvailable && <td className="bs-amount bs-amount-negative" style={{ textAlign: "right", fontSize: 12 }}>({formatAmount(fees, club.currency)})</td>}
-                <td className="bs-amount bs-amount-negative" style={{ textAlign: "right", fontSize: 12 }}>
-                  {expenses > 0 ? `(${formatAmount(expenses, club.currency)})` : "—"}
-                </td>
                 <td className="bs-amount" style={{ textAlign: "right", fontSize: 13, fontWeight: 700, color: net >= 0 ? "var(--green, #1f4d3a)" : "var(--burgundy)" }}>
                   {formatAmount(net, club.currency)}
                 </td>
