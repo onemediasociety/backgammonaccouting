@@ -182,36 +182,38 @@ export default async function ClubPage({
       </section>
 
       {/* Revenue Split */}
-      {split && (
+      {split && split.recipients.length > 0 && (
         <section style={{ marginBottom: 36 }}>
           <h2 className="bs-heading" style={{ fontSize: 19, marginBottom: 14 }}>Revenue Split</h2>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-            {/* Owner */}
-            <div className="bs-card" style={{ padding: "18px 22px" }}>
-              <p className="bs-label" style={{ marginBottom: 6, color: "var(--brass)" }}>
-                Global Owner · {split.ownerPct}%
-              </p>
-              <p className="bs-mono" style={{ fontSize: 22, fontWeight: 700, color: "var(--ink)" }}>
-                {formatAmount(Math.round(netIncome * split.ownerPct / 100), club.currency)}
-              </p>
-            </div>
-            {/* Admin */}
-            <div className="bs-card" style={{
-              padding: "18px 22px",
-              background: split.adminPct > 0 ? "var(--bs-green, #1f4d3a)" : "var(--paper-2)",
-              border: split.adminPct > 0 ? "none" : "1px solid var(--rule)",
-            }}>
-              <p className="bs-label" style={{ marginBottom: 6, color: split.adminPct > 0 ? "rgba(255,255,255,0.55)" : "var(--ink-3)" }}>
-                {session?.role === "club_admin" ? "Your Share" : "Club Admin"} · {split.adminPct}%
-              </p>
-              <p className="bs-mono" style={{ fontSize: 22, fontWeight: 700, color: split.adminPct > 0 ? "#fff" : "var(--ink-3)" }}>
-                {formatAmount(Math.round(netIncome * split.adminPct / 100), club.currency)}
-              </p>
-            </div>
+          <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(split.recipients.length, 3)}, 1fr)`, gap: 14 }}>
+            {split.recipients.map((r, i) => {
+              const isGlobal = r.name === "Global";
+              const isAdmin = !isGlobal;
+              const amount = Math.round(netIncome * r.pct / 100);
+              return (
+                <div key={i} className="bs-card" style={{
+                  padding: "18px 22px",
+                  background: isAdmin && r.pct > 0 ? "var(--bs-green, #1f4d3a)" : undefined,
+                  border: isAdmin && r.pct > 0 ? "none" : undefined,
+                }}>
+                  <p className="bs-label" style={{
+                    marginBottom: 6,
+                    color: isGlobal ? "var(--brass)" : isAdmin && r.pct > 0 ? "rgba(255,255,255,0.55)" : "var(--ink-3)",
+                  }}>
+                    {r.name} · {r.pct}%
+                  </p>
+                  <p className="bs-mono" style={{
+                    fontSize: 22, fontWeight: 700,
+                    color: isAdmin && r.pct > 0 ? "#fff" : "var(--ink)",
+                  }}>
+                    {formatAmount(amount, club.currency)}
+                  </p>
+                </div>
+              );
+            })}
           </div>
           <p style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 10 }}>
             Based on net profit of {formatAmount(netIncome, club.currency)} (Stripe + Cash − Stripe Fees).
-            {split.adminPct === 0 && " Revenue goes fully to the global owner."}
             {session?.role === "super_admin" && (
               <Link href="/admin/splits" style={{ color: "var(--brass)", marginLeft: 8, textDecoration: "none" }}>
                 Edit splits →

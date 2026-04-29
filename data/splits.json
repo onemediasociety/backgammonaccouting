@@ -1,11 +1,11 @@
 [
-  { "clubSlug": "miami",    "ownerPct": 100, "adminPct": 0  },
-  { "clubSlug": "nyc",      "ownerPct": 50,  "adminPct": 50 },
-  { "clubSlug": "montreal", "ownerPct": 30,  "adminPct": 70 },
-  { "clubSlug": "paris",    "ownerPct": 50,  "adminPct": 50 },
-  { "clubSlug": "geneva",   "ownerPct": 50,  "adminPct": 50 },
-  { "clubSlug": "dc",       "ownerPct": 50,  "adminPct": 50 },
-  { "clubSlug": "special",  "ownerPct": 100, "adminPct": 0  },
-  { "clubSlug": "lisbon",    "ownerPct": 50,  "adminPct": 50 },
-  { "clubSlug": "hollywood", "ownerPct": 50,  "adminPct": 50 }
+  { "clubSlug": "miami",    "recipients": [{ "name": "Global", "pct": 100 }] },
+  { "clubSlug": "nyc",      "recipients": [{ "name": "Global", "pct": 50 }, { "name": "Admin", "pct": 50 }] },
+  { "clubSlug": "montreal", "recipients": [{ "name": "Global", "pct": 30 }, { "name": "Admin", "pct": 70 }] },
+  { "clubSlug": "paris",    "recipients": [{ "name": "Global", "pct": 25 }, { "name": "Tina", "pct": 25 }, { "name": "Michael", "pct": 50 }] },
+  { "clubSlug": "geneva",   "recipients": [{ "name": "Global", "pct": 50 }, { "name": "Admin", "pct": 50 }] },
+  { "clubSlug": "dc",       "recipients": [{ "name": "Global", "pct": 50 }, { "name": "Admin", "pct": 50 }] },
+  { "clubSlug": "special",  "recipients": [{ "name": "Global", "pct": 100 }] },
+  { "clubSlug": "lisbon",   "recipients": [{ "name": "Global", "pct": 50 }, { "name": "Admin", "pct": 50 }] },
+  { "clubSlug": "hollywood","recipients": [{ "name": "Global", "pct": 50 }, { "name": "Admin", "pct": 50 }] }
 ]
