@@ -8,6 +8,7 @@ interface Props {
   stripeFees: number;
   feesAvailable: boolean;
   cashTotal: number;
+  expenseTotal: number;
   hasError: boolean;
   periodQuery?: string;
 }
@@ -19,11 +20,13 @@ export default function ClubCard({
   stripeFees,
   feesAvailable,
   cashTotal,
+  expenseTotal,
   hasError,
   periodQuery = "",
 }: Props) {
   const stripeNet = stripeTotal - stripeFees;
   const combined = stripeTotal + cashTotal;
+  const netIncome = combined - expenseTotal;
   const href = `/clubs/${club.slug}${periodQuery ? `?${periodQuery}` : ""}`;
 
   return (
@@ -82,11 +85,19 @@ export default function ClubCard({
             label="Cash buy-ins"
             value={formatAmount(cashTotal, club.currency)}
           />
+          {expenseTotal > 0 && (
+            <Row
+              label="Expenses"
+              value={hasError ? "—" : `(${formatAmount(expenseTotal, club.currency)})`}
+              negative
+            />
+          )}
           <div style={{ paddingTop: 10, borderTop: "1px solid var(--rule)", marginTop: 2 }}>
             <Row
-              label="Combined total"
-              value={hasError ? "—" : formatAmount(combined, club.currency)}
+              label="Net Income"
+              value={hasError ? "—" : formatAmount(netIncome, club.currency)}
               bold
+              positive={netIncome >= 0}
             />
           </div>
         </div>
@@ -101,13 +112,23 @@ function Row({
   sub,
   bold = false,
   negative = false,
+  positive = false,
 }: {
   label: string;
   value: string;
   sub?: string;
   bold?: boolean;
   negative?: boolean;
+  positive?: boolean;
 }) {
+  const valueColor = negative
+    ? "var(--burgundy)"
+    : positive
+    ? "var(--green, #1f4d3a)"
+    : bold
+    ? "var(--ink)"
+    : "var(--ink-2)";
+
   return (
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
       <span style={{ fontSize: 12, color: "var(--ink-3)" }}>{label}</span>
@@ -115,14 +136,7 @@ function Row({
         {sub && (
           <span className="bs-mono" style={{ fontSize: 10, color: "var(--ink-3)" }}>{sub}</span>
         )}
-        <span
-          className="bs-mono"
-          style={{
-            fontSize: bold ? 14 : 12,
-            fontWeight: bold ? 700 : 500,
-            color: negative ? "var(--burgundy)" : bold ? "var(--ink)" : "var(--ink-2)",
-          }}
-        >
+        <span className="bs-mono" style={{ fontSize: bold ? 14 : 12, fontWeight: bold ? 700 : 500, color: valueColor }}>
           {value}
         </span>
       </span>

@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { fetchBalance, fetchAllPayments, fetchFeesByClub } from "@/lib/stripe-client";
 import { getCashTotalsPerClub, getAllCashEntries } from "@/lib/cash-store";
+import { getExpenseTotalsPerClub } from "@/lib/expenses-store";
 import { formatAmount, CLUBS } from "@/lib/clubs";
 import ClubCard from "@/components/ClubCard";
 import DateFilter from "@/components/DateFilter";
@@ -47,6 +48,7 @@ export default async function DashboardPage({
   let summaries: ClubSummary[] | null = null;
   let balance = null;
   let cashTotals: Record<string, number> = {};
+  let expenseTotals: Record<string, number> = {};
   let feesByClub: Record<string, number> = {};
   let feesAvailable = false;
   let allPaymentsForChart = null;
@@ -58,14 +60,16 @@ export default async function DashboardPage({
   const effectiveFromTs = fromTs && chartFromTs ? Math.min(fromTs, chartFromTs) : (fromTs ?? chartFromTs);
 
   try {
-    const [allPayments, bal, ct] = await Promise.all([
+    const [allPayments, bal, ct, et] = await Promise.all([
       fetchAllPayments(effectiveFromTs, toTs_),
       fetchBalance(),
       Promise.resolve(getCashTotalsPerClub(range.from ?? undefined, range.to ?? undefined)),
+      Promise.resolve(getExpenseTotalsPerClub(range.from ?? undefined, range.to ?? undefined)),
     ]);
 
     balance = bal;
     cashTotals = ct;
+    expenseTotals = et;
 
     // Derive chart data (last 6 months)
     allPaymentsForChart = allPayments.filter((p) => p.created >= chartFromTs);
@@ -204,6 +208,7 @@ export default async function DashboardPage({
           const summary = summaries?.find((s) => s.club.slug === club.slug);
           const cashTotal = cashTotals[club.slug] ?? 0;
           const stripeFees = feesByClub[club.slug] ?? 0;
+          const expenseTotal = expenseTotals[club.slug] ?? 0;
           return (
             <ClubCard
               key={club.slug}
@@ -213,6 +218,7 @@ export default async function DashboardPage({
               stripeFees={stripeFees}
               feesAvailable={feesAvailable}
               cashTotal={cashTotal}
+              expenseTotal={expenseTotal}
               hasError={!!error}
               periodQuery={
                 range.period !== "all"
