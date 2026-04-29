@@ -7,6 +7,7 @@ interface Props {
   stripeCount: number;
   cashTotal: number;
   hasError: boolean;
+  periodQuery?: string;
 }
 
 export default function ClubCard({
@@ -15,11 +16,13 @@ export default function ClubCard({
   stripeCount,
   cashTotal,
   hasError,
+  periodQuery = "",
 }: Props) {
   const combined = stripeTotal + cashTotal;
+  const href = `/clubs/${club.slug}${periodQuery ? `?${periodQuery}` : ""}`;
 
   return (
-    <Link href={`/clubs/${club.slug}`}>
+    <Link href={href}>
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow p-5 h-full">
         <div className="flex items-start justify-between mb-4">
           <div>

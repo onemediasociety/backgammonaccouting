@@ -33,12 +33,30 @@ function writeStore(entries: CashEntry[]): void {
   fs.writeFileSync(DATA_FILE, JSON.stringify(entries, null, 2));
 }
 
-export function getAllCashEntries(): CashEntry[] {
-  return readStore();
+export function getAllCashEntries(from?: string, to?: string): CashEntry[] {
+  const entries = readStore();
+  return filterByDate(entries, from, to);
 }
 
-export function getCashEntriesForClub(slug: string): CashEntry[] {
-  return readStore().filter((e) => e.clubSlug === slug);
+export function getCashEntriesForClub(
+  slug: string,
+  from?: string,
+  to?: string
+): CashEntry[] {
+  const entries = readStore().filter((e) => e.clubSlug === slug);
+  return filterByDate(entries, from, to);
+}
+
+function filterByDate(
+  entries: CashEntry[],
+  from?: string,
+  to?: string
+): CashEntry[] {
+  return entries.filter((e) => {
+    if (from && e.date < from) return false;
+    if (to && e.date > to) return false;
+    return true;
+  });
 }
 
 export function addCashEntry(
@@ -64,8 +82,8 @@ export function deleteCashEntry(id: string): boolean {
   return true;
 }
 
-export function getCashTotalsPerClub(): Record<string, number> {
-  const entries = readStore();
+export function getCashTotalsPerClub(from?: string, to?: string): Record<string, number> {
+  const entries = getAllCashEntries(from, to);
   const totals: Record<string, number> = {};
   for (const e of entries) {
     totals[e.clubSlug] = (totals[e.clubSlug] ?? 0) + e.totalAmount;
