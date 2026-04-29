@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { verifySession, type SessionPayload } from "./lib/session";
 
-const PUBLIC = ["/login", "/api/auth"];
+const PUBLIC = ["/login", "/register", "/pending", "/api/auth", "/_next", "/favicon"];
 const SUPER_ADMIN_ONLY = ["/admin", "/reports", "/payouts", "/members"];
 
 export async function proxy(req: NextRequest) {
@@ -22,6 +22,11 @@ export async function proxy(req: NextRequest) {
 
   const session = await verifySession(token);
   if (!session) return toLogin(req, pathname);
+
+  // Pending users can only see /pending
+  if (session.status === "pending") {
+    return NextResponse.redirect(new URL("/pending", req.url));
+  }
 
   // Super admin: unrestricted access
   if (session.role === "super_admin") return NextResponse.next();
