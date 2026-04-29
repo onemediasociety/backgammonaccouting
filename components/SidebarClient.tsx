@@ -39,6 +39,7 @@ const Icons = {
 export default function SidebarClient({ clubs, username, role, isSuper }: Props) {
   const [expanded, setExpanded] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
 
@@ -182,6 +183,33 @@ export default function SidebarClient({ clubs, username, role, isSuper }: Props)
               </div>
             )}
           </div>
+        )}
+        {isSuper && (
+          <button
+            title="Refresh Stripe data"
+            onClick={async () => {
+              setRefreshing(true);
+              await fetch("/api/cache/revalidate", { method: "POST" });
+              router.refresh();
+              setTimeout(() => setRefreshing(false), 1000);
+            }}
+            style={{
+              background: "none", border: "1px solid rgba(255,255,255,0.1)",
+              borderRadius: 6, cursor: refreshing ? "default" : "pointer",
+              padding: expanded ? "5px 10px" : "5px 8px",
+              color: "rgba(240,235,226,0.45)", fontSize: 11,
+              fontFamily: "var(--font-dm-mono, monospace)",
+              display: "flex", alignItems: "center", gap: 6,
+              opacity: refreshing ? 0.5 : 1,
+              whiteSpace: "nowrap", overflow: "hidden",
+            }}
+          >
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ flexShrink: 0, transform: refreshing ? "rotate(360deg)" : "none", transition: refreshing ? "transform 0.8s linear" : "none" }}>
+              <path d="M10 6a4 4 0 1 1-1.2-2.8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+              <path d="M10 2v2.5H7.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            {expanded && (refreshing ? "Refreshing…" : "Refresh data")}
+          </button>
         )}
         <LogoutButton compact={!expanded} />
       </div>

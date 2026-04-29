@@ -1,3 +1,4 @@
+import { unstable_cache } from "next/cache";
 import Stripe from "stripe";
 import { classifyPayment, CLUBS, type Club } from "./clubs";
 import { getVenueMappings } from "./venues-store";
@@ -60,8 +61,6 @@ export interface CustomerRecord {
 }
 
 // Keywords to match against the Stripe charge description (case-insensitive).
-// Description is typically the product name, e.g. "NYC BACKGAMMON SOCIETY" or
-// "2 × Backgammon Club Miami (at $25.00)" for multi-ticket purchases.
 const DESCRIPTION_KEYWORDS: Array<{ slug: string; keywords: string[] }> = [
   { slug: "nyc",      keywords: ["NYC", "NEW YORK"] },
   { slug: "miami",    keywords: ["MIAMI"] },
@@ -76,11 +75,9 @@ const DESCRIPTION_KEYWORDS: Array<{ slug: string; keywords: string[] }> = [
 function classifyByDescription(description: string | null): string | null {
   if (!description) return null;
   const upper = description.toUpperCase();
-  // 1. Check hardcoded city keywords
   for (const { keywords, slug } of DESCRIPTION_KEYWORDS) {
     if (keywords.some((k) => upper.includes(k))) return slug;
   }
-  // 2. Check admin-configured venue mappings
   const venues = getVenueMappings();
   for (const { keyword, clubSlug } of venues) {
     if (upper.includes(keyword)) return clubSlug;
@@ -88,7 +85,6 @@ function classifyByDescription(description: string | null): string | null {
   return null;
 }
 
-// Classify a payment: description first, then exact amount+currency fallback.
 function getClubSlug(
   amount: number,
   currency: string,
@@ -97,20 +93,57 @@ function getClubSlug(
   return classifyByDescription(description) ?? classifyPayment(amount, currency).slug;
 }
 
-export async function fetchChargesWithFees(
-  fromTs?: number,
-  toTs?: number,
-  maxRecords = 500
+// ─── Raw Stripe fetchers (never called directly outside this file) ───────────
+
+async function _fetchAllPaymentsRaw(
+  fromTs: number | null,
+  toTs: number | null,
+  maxRecords: number
+): Promise<PaymentRecord[]> {
+  const stripe = getStripe();
+  const params: Stripe.PaymentIntentListParams = {
+    limit: 100,
+    expand: ["data.latest_charge"],
+  };
+  if (fromTs !== null || toTs !== null) {
+    params.created = {};
+    if (fromTs !== null) (params.created as Stripe.RangeQueryParam).gte = fromTs;
+    if (toTs !== null) (params.created as Stripe.RangeQueryParam).lte = toTs;
+  }
+  const results: PaymentRecord[] = [];
+  for await (const pi of stripe.paymentIntents.list(params)) {
+    const charge = pi.latest_charge as Stripe.Charge | null;
+    const description = charge?.description ?? pi.description;
+    results.push({
+      id: pi.id,
+      amount: pi.amount,
+      currency: pi.currency,
+      status: pi.status,
+      created: pi.created,
+      description,
+      clubSlug: getClubSlug(pi.amount, pi.currency, description),
+      customerName: charge?.billing_details?.name ?? null,
+      customerEmail: charge?.billing_details?.email ?? null,
+    });
+    if (results.length >= maxRecords) break;
+  }
+  return results;
+}
+
+async function _fetchChargesRaw(
+  fromTs: number | null,
+  toTs: number | null,
+  maxRecords: number
 ): Promise<ChargeRecord[]> {
   const stripe = getStripe();
   const params: Stripe.ChargeListParams = {
     limit: 100,
     expand: ["data.balance_transaction"],
   };
-  if (fromTs || toTs) {
+  if (fromTs !== null || toTs !== null) {
     params.created = {};
-    if (fromTs) (params.created as Stripe.RangeQueryParam).gte = fromTs;
-    if (toTs) (params.created as Stripe.RangeQueryParam).lte = toTs;
+    if (fromTs !== null) (params.created as Stripe.RangeQueryParam).gte = fromTs;
+    if (toTs !== null) (params.created as Stripe.RangeQueryParam).lte = toTs;
   }
   const results: ChargeRecord[] = [];
   for await (const c of stripe.charges.list(params)) {
@@ -132,6 +165,51 @@ export async function fetchChargesWithFees(
     if (results.length >= maxRecords) break;
   }
   return results;
+}
+
+// ─── Cached wrappers — 2-minute TTL, tag-revalidatable ───────────────────────
+
+// unstable_cache requires serialisable (non-undefined) args, so we normalise
+// undefined → null before caching.
+
+const _cachedPayments = unstable_cache(
+  _fetchAllPaymentsRaw,
+  ["stripe-payments"],
+  { revalidate: 120, tags: ["stripe-data"] }
+);
+
+const _cachedCharges = unstable_cache(
+  _fetchChargesRaw,
+  ["stripe-charges"],
+  { revalidate: 120, tags: ["stripe-data"] }
+);
+
+// ─── Public API ──────────────────────────────────────────────────────────────
+
+export async function fetchAllPayments(
+  fromTs?: number,
+  toTs?: number,
+  maxRecords = 1000
+): Promise<PaymentRecord[]> {
+  return _cachedPayments(fromTs ?? null, toTs ?? null, maxRecords);
+}
+
+export async function fetchPaymentsForClub(
+  slug: string,
+  fromTs?: number,
+  toTs?: number,
+  // maxRecords ignored — we filter from the shared cached fetch
+): Promise<PaymentRecord[]> {
+  const all = await _cachedPayments(fromTs ?? null, toTs ?? null, 1000);
+  return all.filter((p) => p.clubSlug === slug);
+}
+
+export async function fetchChargesWithFees(
+  fromTs?: number,
+  toTs?: number,
+  maxRecords = 500
+): Promise<ChargeRecord[]> {
+  return _cachedCharges(fromTs ?? null, toTs ?? null, maxRecords);
 }
 
 export async function fetchFeesByClub(
@@ -180,83 +258,6 @@ export interface ClubSummary {
   payments: PaymentRecord[];
   totalCents: number;
   successCount: number;
-}
-
-export async function fetchAllPayments(
-  fromTs?: number,
-  toTs?: number,
-  maxRecords = 1000
-): Promise<PaymentRecord[]> {
-  const stripe = getStripe();
-  const params: Stripe.PaymentIntentListParams = {
-    limit: 100,
-    // Expand latest_charge to get the description (product name), which lets us
-    // correctly classify multi-ticket purchases and payments where amount alone
-    // is ambiguous.
-    expand: ["data.latest_charge"],
-  };
-  if (fromTs || toTs) {
-    params.created = {};
-    if (fromTs) (params.created as Stripe.RangeQueryParam).gte = fromTs;
-    if (toTs) (params.created as Stripe.RangeQueryParam).lte = toTs;
-  }
-  const results: PaymentRecord[] = [];
-  for await (const pi of stripe.paymentIntents.list(params)) {
-    const charge = pi.latest_charge as Stripe.Charge | null;
-    const description = charge?.description ?? pi.description;
-    results.push({
-      id: pi.id,
-      amount: pi.amount,
-      currency: pi.currency,
-      status: pi.status,
-      created: pi.created,
-      description,
-      clubSlug: getClubSlug(pi.amount, pi.currency, description),
-      customerName: charge?.billing_details?.name ?? null,
-      customerEmail: charge?.billing_details?.email ?? null,
-    });
-    if (results.length >= maxRecords) break;
-  }
-  return results;
-}
-
-// Fetches payments for a specific club with billing_details for customer names.
-export async function fetchPaymentsForClub(
-  slug: string,
-  fromTs?: number,
-  toTs?: number,
-  maxRecords = 500
-): Promise<PaymentRecord[]> {
-  const stripe = getStripe();
-  const params: Stripe.PaymentIntentListParams = {
-    limit: 100,
-    expand: ["data.latest_charge"],
-  };
-  if (fromTs || toTs) {
-    params.created = {};
-    if (fromTs) (params.created as Stripe.RangeQueryParam).gte = fromTs;
-    if (toTs) (params.created as Stripe.RangeQueryParam).lte = toTs;
-  }
-  const results: PaymentRecord[] = [];
-  for await (const pi of stripe.paymentIntents.list(params)) {
-    const charge = pi.latest_charge as Stripe.Charge | null;
-    const description = charge?.description ?? pi.description;
-    const clubSlug = getClubSlug(pi.amount, pi.currency, description);
-    if (clubSlug !== slug) continue;
-    results.push({
-      id: pi.id,
-      amount: pi.amount,
-      currency: pi.currency,
-      status: pi.status,
-      created: pi.created,
-      description,
-      clubSlug,
-      customerName: charge?.billing_details?.name ?? null,
-      customerEmail: charge?.billing_details?.email ?? null,
-    });
-    if (results.length >= maxRecords) break;
-  }
-  return results;
 }
 
 export async function fetchBalance(): Promise<Stripe.Balance> {
