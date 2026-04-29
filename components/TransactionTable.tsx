@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { formatAmount } from "@/lib/clubs";
+import { formatAmount, CLUBS } from "@/lib/clubs";
 import type { PaymentRecord } from "@/lib/stripe-client";
 
 const PAGE_SIZE = 10;
@@ -57,7 +57,7 @@ export default function TransactionTable({ payments, currency }: Props) {
                   )}
                 </td>
                 <td style={{ fontSize: 13, color: "var(--ink-3)" }}>
-                  {p.description ?? "Online buy-in"}
+                  {p.description ?? CLUBS.find((c) => c.slug === p.clubSlug)?.name ?? "Online buy-in"}
                 </td>
                 <td className="bs-amount" style={{ textAlign: "right", fontSize: 13 }}>
                   {formatAmount(p.amount, p.currency)}

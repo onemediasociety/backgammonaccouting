@@ -6,5 +6,6 @@
   { "clubSlug": "geneva",   "ownerPct": 50,  "adminPct": 50 },
   { "clubSlug": "dc",       "ownerPct": 50,  "adminPct": 50 },
   { "clubSlug": "special",  "ownerPct": 100, "adminPct": 0  },
-  { "clubSlug": "lisbon",   "ownerPct": 50,  "adminPct": 50 }
+  { "clubSlug": "lisbon",    "ownerPct": 50,  "adminPct": 50 },
+  { "clubSlug": "hollywood", "ownerPct": 50,  "adminPct": 50 }
 ]

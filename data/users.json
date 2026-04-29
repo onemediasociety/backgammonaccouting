@@ -70,5 +70,14 @@
     "clubSlugs": ["lisbon"],
     "createdAt": "2026-04-29T20:27:42.872Z",
     "updatedAt": "2026-04-29T20:27:42.872Z"
+  },
+  {
+    "id": "e7b3a291-5f6c-4d8e-b047-92a1c3d5e8f4",
+    "username": "admin-hollywood",
+    "passwordHash": "8eb61c85d696615d70cace2d21dfeabf2a3373b408d62f3201cb8182dd3e07f7",
+    "role": "club_admin",
+    "clubSlugs": ["hollywood"],
+    "createdAt": "2026-04-29T20:27:42.872Z",
+    "updatedAt": "2026-04-29T20:27:42.872Z"
   }
 ]

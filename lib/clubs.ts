@@ -105,6 +105,19 @@ export const CLUBS: Club[] = [
     matchFn: (amount, currency) => currency === "eur" && amount === 2300,
   },
   {
+    slug: "hollywood",
+    name: "Hollywood Backgammon Club",
+    city: "Hollywood",
+    country: "US",
+    currency: "usd",
+    flag: "🏖️",
+    color: "orange",
+    accentBg: "bg-orange-50",
+    accentText: "text-orange-700",
+    // $27 same as NYC — distinguished by description keyword matching only
+    matchFn: () => false,
+  },
+  {
     slug: "special",
     name: "Special Events",
     city: "Various",
