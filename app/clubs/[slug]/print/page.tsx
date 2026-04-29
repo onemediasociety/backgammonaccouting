@@ -35,7 +35,7 @@ export default async function PrintPage({
 
   let stripePayments: Awaited<ReturnType<typeof fetchPaymentsForClub>> = [];
   try {
-    stripePayments = await fetchPaymentsForClub(club.slug, 100, fromTs, toTs_);
+    stripePayments = await fetchPaymentsForClub(club.slug, fromTs, toTs_);
   } catch {
     stripePayments = [];
   }

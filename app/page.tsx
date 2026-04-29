@@ -58,7 +58,7 @@ export default async function DashboardPage({
       buildClubSummaries(fromTs, toTs_),
       fetchBalance(),
       Promise.resolve(getCashTotalsPerClub(range.from ?? undefined, range.to ?? undefined)),
-      fetchAllPayments(500, chartFromTs),
+      fetchAllPayments(chartFromTs),
     ]);
     cashEntriesForChart = getAllCashEntries(
       sixMonthsAgo.toISOString().slice(0, 10),

@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
 
   let stripeRows: string[] = [];
   try {
-    const payments = await fetchPaymentsForClub(slug, 100, fromTs, toTs_);
+    const payments = await fetchPaymentsForClub(slug, fromTs, toTs_);
     stripeRows = payments
       .filter((p) => p.status === "succeeded")
       .map((p) =>

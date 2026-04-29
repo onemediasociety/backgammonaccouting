@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
 
   let stripePayments: PaymentRecord[] = [];
   try {
-    stripePayments = await fetchAllPayments(500, fromTs, toTs_);
+    stripePayments = await fetchAllPayments(fromTs, toTs_);
   } catch {
     stripePayments = [];
   }

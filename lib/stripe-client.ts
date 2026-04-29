@@ -57,13 +57,12 @@ export interface CustomerRecord {
 }
 
 export async function fetchChargesWithFees(
-  limit = 100,
   fromTs?: number,
   toTs?: number
 ): Promise<ChargeRecord[]> {
   const stripe = getStripe();
   const params: Stripe.ChargeListParams = {
-    limit,
+    limit: 100,
     expand: ["data.balance_transaction"],
   };
   if (fromTs || toTs) {
@@ -71,10 +70,10 @@ export async function fetchChargesWithFees(
     if (fromTs) (params.created as Stripe.RangeQueryParam).gte = fromTs;
     if (toTs) (params.created as Stripe.RangeQueryParam).lte = toTs;
   }
-  const charges = await stripe.charges.list(params);
-  return charges.data.map((c) => {
+  const results: ChargeRecord[] = [];
+  for await (const c of stripe.charges.list(params)) {
     const bt = c.balance_transaction as Stripe.BalanceTransaction | null;
-    return {
+    results.push({
       id: c.id,
       amount: c.amount,
       fee: bt?.fee ?? 0,
@@ -87,15 +86,16 @@ export async function fetchChargesWithFees(
       clubSlug: classifyPayment(c.amount, c.currency).slug,
       refunded: c.refunded,
       amountRefunded: c.amount_refunded,
-    };
-  });
+    });
+  }
+  return results;
 }
 
 export async function fetchFeesByClub(
   fromTs?: number,
   toTs?: number
 ): Promise<Record<string, number>> {
-  const charges = await fetchChargesWithFees(500, fromTs, toTs);
+  const charges = await fetchChargesWithFees(fromTs, toTs);
   const fees: Record<string, number> = {};
   for (const c of charges) {
     if (c.status !== "succeeded") continue;
@@ -139,36 +139,37 @@ export interface ClubSummary {
 }
 
 export async function fetchAllPayments(
-  limit = 100,
   fromTs?: number,
   toTs?: number
 ): Promise<PaymentRecord[]> {
   const stripe = getStripe();
-  const params: Stripe.PaymentIntentListParams = { limit };
+  const params: Stripe.PaymentIntentListParams = { limit: 100 };
   if (fromTs || toTs) {
     params.created = {};
     if (fromTs) (params.created as Stripe.RangeQueryParam).gte = fromTs;
     if (toTs) (params.created as Stripe.RangeQueryParam).lte = toTs;
   }
-  const intents = await stripe.paymentIntents.list(params);
-  return intents.data.map((pi) => ({
-    id: pi.id,
-    amount: pi.amount,
-    currency: pi.currency,
-    status: pi.status,
-    created: pi.created,
-    description: pi.description,
-    clubSlug: classifyPayment(pi.amount, pi.currency).slug,
-  }));
+  const results: PaymentRecord[] = [];
+  for await (const pi of stripe.paymentIntents.list(params)) {
+    results.push({
+      id: pi.id,
+      amount: pi.amount,
+      currency: pi.currency,
+      status: pi.status,
+      created: pi.created,
+      description: pi.description,
+      clubSlug: classifyPayment(pi.amount, pi.currency).slug,
+    });
+  }
+  return results;
 }
 
 export async function fetchPaymentsForClub(
   slug: string,
-  limit = 100,
   fromTs?: number,
   toTs?: number
 ): Promise<PaymentRecord[]> {
-  const all = await fetchAllPayments(limit, fromTs, toTs);
+  const all = await fetchAllPayments(fromTs, toTs);
   return all.filter((p) => p.clubSlug === slug);
 }
 
@@ -180,7 +181,7 @@ export async function buildClubSummaries(
   fromTs?: number,
   toTs?: number
 ): Promise<ClubSummary[]> {
-  const payments = await fetchAllPayments(100, fromTs, toTs);
+  const payments = await fetchAllPayments(fromTs, toTs);
   return CLUBS.map((club) => {
     const clubPayments = payments.filter(
       (p) => p.clubSlug === club.slug && p.status === "succeeded"

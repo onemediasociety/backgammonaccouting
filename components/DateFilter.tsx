@@ -22,7 +22,7 @@ export default function DateFilter() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const activePeriod = (searchParams.get("period") as Period) ?? "all";
+  const activePeriod = (searchParams.get("period") as Period) ?? "ytd";
   const customFrom = searchParams.get("from") ?? "";
   const customTo = searchParams.get("to") ?? "";
 

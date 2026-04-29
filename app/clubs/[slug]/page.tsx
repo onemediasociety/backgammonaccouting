@@ -53,7 +53,7 @@ export default async function ClubPage({
   let stripePayments = null;
   let stripeError: string | null = null;
   try {
-    stripePayments = await fetchPaymentsForClub(club.slug, 100, fromTs, toTs_);
+    stripePayments = await fetchPaymentsForClub(club.slug, fromTs, toTs_);
   } catch (e: unknown) {
     stripeError = e instanceof Error ? e.message : "Stripe error";
   }
