@@ -128,6 +128,7 @@ export function getClub(slug: string): Club | undefined {
   return CLUBS.find((c) => c.slug === slug);
 }
 
+
 export function formatAmount(amountCents: number, currency: string): string {
   return new Intl.NumberFormat("en-US", {
     style: "currency",

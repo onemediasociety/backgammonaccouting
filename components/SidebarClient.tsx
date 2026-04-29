@@ -84,7 +84,7 @@ export default function SidebarClient({ clubs, username, role, isSuper }: Props)
       { href: "/payouts", label: "Payouts", icon: Icons.payouts },
       { href: "/reports", label: "Reports", icon: Icons.reports },
       { href: "/members", label: "Members", icon: Icons.members },
-      { href: "/admin/users", label: "Admin", icon: Icons.admin },
+      { href: "/admin", label: "Settings", icon: Icons.admin },
     );
   }
 
@@ -132,7 +132,9 @@ export default function SidebarClient({ clubs, username, role, isSuper }: Props)
               paddingRight: 28,
             }}
           >
-            {isSuper && <option value="all" style={{ background: "#1a1611" }}>All Clubs</option>}
+            <option value="all" disabled={!isSuper} style={{ background: "#1a1611" }}>
+              {activeClub === "all" ? "City" : "← All Clubs"}
+            </option>
             {clubs.map((c) => (
               <option key={c.slug} value={c.slug} style={{ background: "#1a1611" }}>
                 {c.flag} {c.city}

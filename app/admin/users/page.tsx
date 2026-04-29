@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireSuperAdmin } from "@/lib/get-session";
 import { getAllUsers } from "@/lib/users-store";
-import { CLUBS } from "@/lib/clubs";
+import { getAllClubs } from "@/lib/clubs-server";
 import DeleteUserButton from "./DeleteUserButton";
 
 export const dynamic = "force-dynamic";
@@ -9,12 +9,13 @@ export const dynamic = "force-dynamic";
 export default async function UsersPage() {
   await requireSuperAdmin();
   const users = getAllUsers();
+  const allClubs = getAllClubs();
 
   function clubNames(slugs: string[]): string {
     if (slugs.length === 0) return "—";
     return slugs
       .map((s) => {
-        const club = CLUBS.find((c) => c.slug === s);
+        const club = allClubs.find((c) => c.slug === s);
         return club ? `${club.flag} ${club.city}` : s;
       })
       .join(", ");
@@ -22,91 +23,79 @@ export default async function UsersPage() {
 
   return (
     <div>
-      <div className="mb-6 flex items-center gap-2 text-sm text-gray-500">
-        <Link href="/" className="hover:text-gray-900">Dashboard</Link>
-        <span>/</span>
-        <span className="text-gray-900 font-medium">Admin</span>
-        <span>/</span>
-        <span className="text-gray-900 font-medium">Users</span>
-      </div>
-
-      <div className="mb-6 flex items-center justify-between">
+      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 24 }}>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Club Admin Accounts</h1>
-          <p className="text-gray-500 mt-1">
-            Manage club admin logins and their club assignments.
+          <p className="bs-mono" style={{ fontSize: 10, color: "var(--ink-3)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 4 }}>
+            <Link href="/admin" style={{ color: "inherit", textDecoration: "none" }}>Settings</Link>
+            {" / "}Users
           </p>
+          <h1 className="bs-heading" style={{ fontSize: 24 }}>Admin Users</h1>
         </div>
-        <Link
-          href="/admin/users/new"
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
-        >
+        <Link href="/admin/users/new" style={{
+          fontFamily: "var(--font-dm-mono, monospace)", fontSize: 11,
+          padding: "8px 16px", borderRadius: 8,
+          background: "var(--ink)", color: "var(--brass)",
+          textDecoration: "none", letterSpacing: "0.04em",
+        }}>
           + New User
         </Link>
       </div>
 
-      {/* Virtual admin note */}
-      <div className="rounded-lg bg-blue-50 border border-blue-200 p-4 mb-6 text-sm text-blue-800">
-        <strong>Super Admin</strong> — username:{" "}
-        <code className="bg-blue-100 px-1 rounded">admin</code>, password:{" "}
-        <code className="bg-blue-100 px-1 rounded">SITE_PASSWORD</code> env var.
-        This account always exists and is not stored in the table below.
+      {/* Super admin note */}
+      <div className="bs-card" style={{ padding: "12px 16px", marginBottom: 20, display: "flex", gap: 10, alignItems: "flex-start" }}>
+        <span style={{ fontSize: 16 }}>ℹ️</span>
+        <p style={{ fontSize: 12, color: "var(--ink-2)", margin: 0 }}>
+          <strong>Super Admin</strong> account (username: <code style={{ fontFamily: "var(--font-dm-mono, monospace)", background: "var(--paper-2)", padding: "1px 5px", borderRadius: 4 }}>admin</code>) is authenticated via the{" "}
+          <code style={{ fontFamily: "var(--font-dm-mono, monospace)", background: "var(--paper-2)", padding: "1px 5px", borderRadius: 4 }}>SITE_PASSWORD</code> environment variable and is not listed below.
+        </p>
       </div>
 
       {users.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-gray-200 p-10 text-center text-gray-400">
+        <div className="bs-card" style={{ padding: "40px 20px", textAlign: "center", color: "var(--ink-3)", fontSize: 13 }}>
           No club admins yet.{" "}
-          <Link href="/admin/users/new" className="text-blue-600 hover:underline">
-            Create the first one.
-          </Link>
+          <Link href="/admin/users/new" style={{ color: "var(--brass)" }}>Create the first one.</Link>
         </div>
       ) : (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-200">
+        <div className="bs-card" style={{ overflow: "hidden" }}>
+          <table className="bs-table">
+            <thead>
               <tr>
-                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                  Username
-                </th>
-                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                  Role
-                </th>
-                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                  Assigned Clubs
-                </th>
-                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                  Created
-                </th>
-                <th className="px-5 py-3" />
+                <th>User</th>
+                <th>Role</th>
+                <th>Assigned Clubs</th>
+                <th>Created</th>
+                <th />
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody>
               {users.map((user) => (
-                <tr key={user.id} className="hover:bg-gray-50">
-                  <td className="px-5 py-3 font-medium text-gray-900">
-                    {user.username}
+                <tr key={user.id}>
+                  <td>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <div className="bs-avatar" style={{ width: 28, height: 28, fontSize: 10, flexShrink: 0 }}>
+                        {user.username.slice(0, 2).toUpperCase()}
+                      </div>
+                      <span style={{ fontSize: 13, fontWeight: 500, color: "var(--ink)" }}>{user.username}</span>
+                    </div>
                   </td>
-                  <td className="px-5 py-3">
-                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-50 text-purple-700">
+                  <td>
+                    <span style={{ fontSize: 10, fontFamily: "var(--font-dm-mono, monospace)", padding: "2px 8px", borderRadius: 20, background: "rgba(139,26,26,0.08)", color: "var(--burgundy)", border: "1px solid rgba(139,26,26,0.15)" }}>
                       Club Admin
                     </span>
                   </td>
-                  <td className="px-5 py-3 text-gray-600">
+                  <td style={{ fontSize: 12, color: "var(--ink-2)" }}>
                     {clubNames(user.clubSlugs)}
                   </td>
-                  <td className="px-5 py-3 text-gray-500">
-                    {new Date(user.createdAt).toLocaleDateString("en-US", {
-                      year: "numeric",
-                      month: "short",
-                      day: "numeric",
-                    })}
+                  <td className="bs-mono" style={{ fontSize: 11, color: "var(--ink-3)" }}>
+                    {new Date(user.createdAt).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}
                   </td>
-                  <td className="px-5 py-3 text-right">
-                    <div className="flex items-center justify-end gap-3">
-                      <Link
-                        href={`/admin/users/${user.id}`}
-                        className="text-xs text-blue-600 hover:text-blue-800"
-                      >
+                  <td style={{ textAlign: "right" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8 }}>
+                      <Link href={`/admin/users/${user.id}`} style={{
+                        fontSize: 11, fontFamily: "var(--font-dm-mono, monospace)",
+                        color: "var(--ink-3)", textDecoration: "none",
+                        padding: "3px 8px", border: "1px solid var(--rule)", borderRadius: 6,
+                      }}>
                         Edit
                       </Link>
                       <DeleteUserButton id={user.id} username={user.username} />
@@ -118,15 +107,6 @@ export default async function UsersPage() {
           </table>
         </div>
       )}
-
-      <div className="mt-6">
-        <Link
-          href="/admin/splits"
-          className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900"
-        >
-          → Manage Revenue Splits
-        </Link>
-      </div>
     </div>
   );
 }

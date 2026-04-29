@@ -2,7 +2,8 @@ import { Suspense } from "react";
 import { fetchBalance, fetchAllPayments, fetchFeesByClub } from "@/lib/stripe-client";
 import { getCashTotalsPerClub, getAllCashEntries } from "@/lib/cash-store";
 import { getExpenseTotalsPerClub } from "@/lib/expenses-store";
-import { formatAmount, CLUBS } from "@/lib/clubs";
+import { formatAmount } from "@/lib/clubs";
+import { getAllClubs } from "@/lib/clubs-server";
 import Link from "next/link";
 import DateFilter from "@/components/DateFilter";
 import RevenueChart from "@/components/RevenueChart";
@@ -57,6 +58,8 @@ export default async function DashboardPage({
   const sixMonthsAgo = new Date();
   sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
   const chartFromTs = Math.floor(sixMonthsAgo.getTime() / 1000);
+
+  const CLUBS = getAllClubs();
 
   let summaries: ClubSummary[] | null = null;
   let balance = null;

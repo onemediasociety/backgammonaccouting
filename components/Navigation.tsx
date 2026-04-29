@@ -1,4 +1,4 @@
-import { CLUBS } from "@/lib/clubs";
+import { getAllClubs } from "@/lib/clubs-server";
 import { getSession } from "@/lib/get-session";
 import SidebarClient from "./SidebarClient";
 
@@ -7,9 +7,10 @@ export default async function Navigation() {
   const isSuper = session?.role === "super_admin";
   const isClubAdmin = session?.role === "club_admin";
 
+  const allClubs = getAllClubs();
   const visibleClubs = isClubAdmin
-    ? CLUBS.filter((c) => session.clubSlugs.includes(c.slug))
-    : CLUBS;
+    ? allClubs.filter((c) => session.clubSlugs.includes(c.slug))
+    : allClubs;
 
   return (
     <SidebarClient
