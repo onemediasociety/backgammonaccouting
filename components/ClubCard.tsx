@@ -6,6 +6,7 @@ interface Props {
   stripeTotal: number;
   stripeCount: number;
   stripeFees: number;
+  feesAvailable: boolean;
   cashTotal: number;
   hasError: boolean;
   periodQuery?: string;
@@ -16,6 +17,7 @@ export default function ClubCard({
   stripeTotal,
   stripeCount,
   stripeFees,
+  feesAvailable,
   cashTotal,
   hasError,
   periodQuery = "",
@@ -47,19 +49,23 @@ export default function ClubCard({
             label="Stripe gross"
             value={hasError ? "—" : `${formatAmount(stripeTotal, club.currency)} (${stripeCount})`}
           />
-          {!hasError && stripeFees > 0 && (
-            <Row
-              label="Stripe fees"
-              value={`(${formatAmount(stripeFees, club.currency)})`}
-              dimRed
-            />
-          )}
-          {!hasError && stripeFees > 0 && (
-            <Row
-              label="Stripe net"
-              value={formatAmount(stripeNet, club.currency)}
-            />
-          )}
+          <Row
+            label="Stripe fees"
+            value={
+              hasError
+                ? "—"
+                : !feesAvailable
+                ? "—"
+                : `(${formatAmount(stripeFees, club.currency)})`
+            }
+            dimRed={feesAvailable && !hasError}
+          />
+          <Row
+            label="Stripe net"
+            value={
+              hasError ? "—" : !feesAvailable ? "—" : formatAmount(stripeNet, club.currency)
+            }
+          />
           <Row
             label="Cash buy-ins"
             value={formatAmount(cashTotal, club.currency)}
@@ -96,7 +102,7 @@ function Row({
           bold
             ? "font-bold text-gray-900"
             : dimRed
-            ? "text-red-400 text-xs self-center"
+            ? "text-red-500 text-xs self-center"
             : "text-gray-700"
         }
       >

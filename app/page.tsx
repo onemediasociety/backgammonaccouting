@@ -48,16 +48,16 @@ export default async function DashboardPage({
   let balance = null;
   let cashTotals: Record<string, number> = {};
   let feesByClub: Record<string, number> = {};
+  let feesAvailable = false;
   let allPaymentsForChart = null;
   let cashEntriesForChart = null;
   let error: string | null = null;
 
   try {
-    [summaries, balance, cashTotals, feesByClub, allPaymentsForChart] = await Promise.all([
+    [summaries, balance, cashTotals, allPaymentsForChart] = await Promise.all([
       buildClubSummaries(fromTs, toTs_),
       fetchBalance(),
       Promise.resolve(getCashTotalsPerClub(range.from ?? undefined, range.to ?? undefined)),
-      fetchFeesByClub(fromTs, toTs_),
       fetchAllPayments(500, chartFromTs),
     ]);
     cashEntriesForChart = getAllCashEntries(
@@ -66,6 +66,14 @@ export default async function DashboardPage({
     );
   } catch (e: unknown) {
     error = e instanceof Error ? e.message : "Failed to load data";
+  }
+
+  // Fetch fees separately so a failure doesn't blank out the main data
+  try {
+    feesByClub = await fetchFeesByClub(fromTs, toTs_);
+    feesAvailable = true;
+  } catch {
+    feesAvailable = false;
   }
 
   const grandTotalUSD = summaries
@@ -170,6 +178,7 @@ export default async function DashboardPage({
               stripeTotal={summary?.totalCents ?? 0}
               stripeCount={summary?.successCount ?? 0}
               stripeFees={stripeFees}
+              feesAvailable={feesAvailable}
               cashTotal={cashTotal}
               hasError={!!error}
               periodQuery={
