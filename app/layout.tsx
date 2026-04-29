@@ -50,19 +50,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* Decorative backgammon stripe */}
         <div className="bs-stripe" />
 
-        {/* App shell */}
-        <div style={{ display: "flex", height: "calc(100vh - 4px)", overflow: "hidden" }}>
-          {/* Sidebar (hidden on mobile, shown via overlay) */}
+        {/* App shell: sidebar + content side by side on desktop */}
+        <div className="app-shell">
           <Navigation />
-
-          {/* Main content */}
-          <main
-            style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}
-          >
-            <div
-              style={{ maxWidth: 1200, margin: "0 auto", padding: "32px 28px 64px" }}
-              className="main-content"
-            >
+          <main className="app-main">
+            <div className="app-main-inner">
               {children}
             </div>
           </main>
