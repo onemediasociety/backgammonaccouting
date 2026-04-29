@@ -1,11 +1,13 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Include the data directory in the serverless function bundle
   outputFileTracingIncludes: {
     "/api/cash": ["./data/**/*"],
+    "/api/expenses": ["./data/**/*"],
     "/api/export": ["./data/**/*"],
+    "/api/export/qbo": ["./data/**/*"],
     "/": ["./data/**/*"],
     "/clubs/[slug]": ["./data/**/*"],
+    "/reports": ["./data/**/*"],
   },
 };
 

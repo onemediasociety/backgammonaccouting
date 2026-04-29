@@ -1,10 +1,12 @@
 import { Suspense } from "react";
-import { buildClubSummaries, fetchBalance } from "@/lib/stripe-client";
-import { getCashTotalsPerClub } from "@/lib/cash-store";
+import { buildClubSummaries, fetchBalance, fetchAllPayments } from "@/lib/stripe-client";
+import { getCashTotalsPerClub, getAllCashEntries } from "@/lib/cash-store";
 import { formatAmount, CLUBS } from "@/lib/clubs";
 import ClubCard from "@/components/ClubCard";
-import DateFilter from "@/components/DateFilter"
-import { parseDateRange, getDateRange } from "@/lib/date-range";
+import DateFilter from "@/components/DateFilter";
+import RevenueChart from "@/components/RevenueChart";
+import { parseDateRange } from "@/lib/date-range";
+import { buildMonthlyRevenue } from "@/lib/monthly-revenue";
 
 export const dynamic = "force-dynamic";
 
@@ -37,17 +39,29 @@ export default async function DashboardPage({
   const fromTs = toTs(range.from);
   const toTs_ = toTs(range.to, true);
 
+  // For chart: always fetch last 6 months regardless of filter
+  const sixMonthsAgo = new Date();
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+  const chartFromTs = Math.floor(sixMonthsAgo.getTime() / 1000);
+
   let summaries = null;
   let balance = null;
   let cashTotals: Record<string, number> = {};
+  let allPaymentsForChart = null;
+  let cashEntriesForChart = null;
   let error: string | null = null;
 
   try {
-    [summaries, balance, cashTotals] = await Promise.all([
+    [summaries, balance, cashTotals, allPaymentsForChart] = await Promise.all([
       buildClubSummaries(fromTs, toTs_),
       fetchBalance(),
       Promise.resolve(getCashTotalsPerClub(range.from ?? undefined, range.to ?? undefined)),
+      fetchAllPayments(500, chartFromTs),
     ]);
+    cashEntriesForChart = getAllCashEntries(
+      sixMonthsAgo.toISOString().slice(0, 10),
+      undefined
+    );
   } catch (e: unknown) {
     error = e instanceof Error ? e.message : "Failed to load data";
   }
@@ -63,6 +77,10 @@ export default async function DashboardPage({
     : range.period === "all" || !range.period
     ? "All Time"
     : "";
+
+  const monthlyBars = allPaymentsForChart && cashEntriesForChart
+    ? buildMonthlyRevenue(allPaymentsForChart, cashEntriesForChart, 6)
+    : [];
 
   return (
     <div>
@@ -130,6 +148,11 @@ export default async function DashboardPage({
             <p className="text-2xl font-bold text-gray-900 mt-1">{CLUBS.length}</p>
           </div>
         </div>
+      )}
+
+      {/* Revenue chart (last 6 months, always) */}
+      {monthlyBars.length > 0 && (
+        <RevenueChart months={monthlyBars} currency="usd" />
       )}
 
       <h2 className="text-lg font-semibold text-gray-700 mb-4">Clubs</h2>

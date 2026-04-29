@@ -12,11 +12,11 @@ interface Props {
 }
 
 export default function ExportButtons({ clubSlug, from, to }: Props) {
-  function buildCSVUrl() {
-    const p = new URLSearchParams({ club: clubSlug });
+  function buildUrl(base: string, extra: Record<string, string> = {}) {
+    const p = new URLSearchParams({ ...extra });
     if (from) p.set("from", from);
     if (to) p.set("to", to);
-    return `/api/export?${p.toString()}`;
+    return `${base}?${p.toString()}`;
   }
 
   function openPrint() {
@@ -28,13 +28,27 @@ export default function ExportButtons({ clubSlug, from, to }: Props) {
   }
 
   return (
-    <div className="flex items-center gap-2 print:hidden">
+    <div className="flex flex-wrap items-center gap-2 print:hidden">
       <a
-        href={buildCSVUrl()}
+        href={buildUrl("/api/export", { club: clubSlug })}
         download
         className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm text-gray-700 hover:bg-gray-50 transition-colors"
       >
         ↓ CSV
+      </a>
+      <a
+        href={buildUrl("/api/export/qbo", { club: clubSlug, format: "quickbooks" })}
+        download
+        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+      >
+        ↓ QuickBooks
+      </a>
+      <a
+        href={buildUrl("/api/export/qbo", { club: clubSlug, format: "xero" })}
+        download
+        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+      >
+        ↓ Xero
       </a>
       <button
         onClick={openPrint}

@@ -4,10 +4,13 @@ import Link from "next/link";
 import { getClub, formatAmount } from "@/lib/clubs";
 import { fetchPaymentsForClub } from "@/lib/stripe-client";
 import { getCashEntriesForClub } from "@/lib/cash-store";
+import { getExpensesForClub } from "@/lib/expenses-store";
 import TransactionTable from "@/components/TransactionTable";
 import CashTable from "@/components/CashTable";
 import AddCashForm from "@/components/AddCashForm";
-import DateFilter from "@/components/DateFilter"
+import AddExpenseForm from "@/components/AddExpenseForm";
+import ExpenseTable from "@/components/ExpenseTable";
+import DateFilter from "@/components/DateFilter";
 import { parseDateRange } from "@/lib/date-range";
 import ExportButtons from "@/components/ExportButtons";
 
@@ -54,13 +57,21 @@ export default async function ClubPage({
     range.to ?? undefined
   );
 
+  const expenses = getExpensesForClub(
+    club.slug,
+    range.from ?? undefined,
+    range.to ?? undefined
+  );
+
   const stripeTotal =
     stripePayments
       ?.filter((p) => p.status === "succeeded")
       .reduce((s, p) => s + p.amount, 0) ?? 0;
 
   const cashTotal = cashEntries.reduce((s, e) => s + e.totalAmount, 0);
+  const expenseTotal = expenses.reduce((s, e) => s + e.amountCents, 0);
   const stripeCount = stripePayments?.filter((p) => p.status === "succeeded").length ?? 0;
+  const netIncome = stripeTotal + cashTotal - expenseTotal;
 
   const periodLabel =
     range.from && range.to
@@ -107,11 +118,12 @@ export default async function ClubPage({
         </Suspense>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-8">
         <Kpi label="Stripe Revenue" value={formatAmount(stripeTotal, club.currency)} />
         <Kpi label="Stripe Transactions" value={stripeCount.toString()} />
         <Kpi label="Cash Buy-ins" value={formatAmount(cashTotal, club.currency)} />
-        <Kpi label="Combined Total" value={formatAmount(stripeTotal + cashTotal, club.currency)} highlight />
+        <Kpi label="Expenses" value={formatAmount(expenseTotal, club.currency)} color="red" />
+        <Kpi label="Net Income" value={formatAmount(netIncome, club.currency)} highlight color={netIncome >= 0 ? "green" : "red"} />
       </div>
 
       <section className="mb-10">
@@ -139,17 +151,51 @@ export default async function ClubPage({
           <CashTable entries={cashEntries} currency={club.currency} />
         </div>
       </section>
+
+      <section className="mb-10">
+        <h2 className="text-lg font-semibold text-gray-800 mb-3">Expenses</h2>
+        <AddExpenseForm clubSlug={club.slug} currency={club.currency} />
+        <div className="mt-4">
+          <ExpenseTable entries={expenses} currency={club.currency} />
+        </div>
+      </section>
     </div>
   );
 }
 
-function Kpi({ label, value, highlight = false }: { label: string; value: string; highlight?: boolean }) {
+function Kpi({
+  label,
+  value,
+  highlight = false,
+  color = "default",
+}: {
+  label: string;
+  value: string;
+  highlight?: boolean;
+  color?: "default" | "red" | "green";
+}) {
+  const bg = highlight
+    ? color === "green"
+      ? "bg-green-600 border-green-700 text-white"
+      : color === "red"
+      ? "bg-red-600 border-red-700 text-white"
+      : "bg-brand-500 border-brand-600 text-white"
+    : "bg-white border-gray-200";
+  const labelCls = highlight ? "text-white/70" : "text-gray-400";
+  const valueCls = highlight
+    ? "text-white"
+    : color === "red"
+    ? "text-red-600"
+    : color === "green"
+    ? "text-green-600"
+    : "text-gray-900";
+
   return (
-    <div className={`rounded-xl border p-4 ${highlight ? "bg-brand-500 border-brand-600 text-white" : "bg-white border-gray-200"}`}>
-      <p className={`text-xs font-semibold uppercase tracking-wide mb-1 ${highlight ? "text-blue-100" : "text-gray-400"}`}>
+    <div className={`rounded-xl border p-4 ${bg}`}>
+      <p className={`text-xs font-semibold uppercase tracking-wide mb-1 ${labelCls}`}>
         {label}
       </p>
-      <p className={`text-xl font-bold ${highlight ? "text-white" : "text-gray-900"}`}>{value}</p>
+      <p className={`text-xl font-bold ${valueCls}`}>{value}</p>
     </div>
   );
 }
