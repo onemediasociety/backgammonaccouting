@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense } from "react";
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const from = searchParams.get("from") ?? "/";
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -20,13 +20,13 @@ function LoginForm() {
       const res = await fetch("/api/auth", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ username, password }),
       });
       if (res.ok) {
         router.push(from);
         router.refresh();
       } else {
-        setError("Incorrect password. Please try again.");
+        setError("Invalid credentials. Please try again.");
       }
     } catch {
       setError("Something went wrong. Please try again.");
@@ -47,6 +47,22 @@ function LoginForm() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">
+              Username
+            </label>
+            <input
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              required
+              autoFocus
+              autoComplete="username"
+              className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="admin"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">
               Password
             </label>
             <input
@@ -54,9 +70,9 @@ function LoginForm() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              autoFocus
+              autoComplete="current-password"
               className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Enter password"
+              placeholder="••••••••"
             />
           </div>
 
@@ -74,6 +90,12 @@ function LoginForm() {
             {loading ? "Signing in…" : "Sign In"}
           </button>
         </form>
+
+        <p className="text-center text-xs text-gray-400 mt-6">
+          Super admins: use username{" "}
+          <span className="font-mono bg-gray-100 px-1 rounded">admin</span> with the
+          site password.
+        </p>
       </div>
     </div>
   );

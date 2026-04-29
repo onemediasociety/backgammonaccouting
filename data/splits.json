@@ -1,0 +1,9 @@
+[
+  { "clubSlug": "miami",    "ownerPct": 100, "adminPct": 0  },
+  { "clubSlug": "nyc",      "ownerPct": 50,  "adminPct": 50 },
+  { "clubSlug": "montreal", "ownerPct": 70,  "adminPct": 30 },
+  { "clubSlug": "paris",    "ownerPct": 50,  "adminPct": 50 },
+  { "clubSlug": "geneva",   "ownerPct": 50,  "adminPct": 50 },
+  { "clubSlug": "dc",       "ownerPct": 50,  "adminPct": 50 },
+  { "clubSlug": "special",  "ownerPct": 100, "adminPct": 0  }
+]

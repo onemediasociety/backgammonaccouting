@@ -5,6 +5,8 @@ import { getClub, formatAmount } from "@/lib/clubs";
 import { fetchPaymentsForClub } from "@/lib/stripe-client";
 import { getCashEntriesForClub } from "@/lib/cash-store";
 import { getExpensesForClub } from "@/lib/expenses-store";
+import { getSplitForClub } from "@/lib/splits-store";
+import { getSession } from "@/lib/get-session";
 import TransactionTable from "@/components/TransactionTable";
 import CashTable from "@/components/CashTable";
 import AddCashForm from "@/components/AddCashForm";
@@ -35,6 +37,11 @@ export default async function ClubPage({
 
   const club = getClub(slug);
   if (!club) notFound();
+
+  const [session, split] = await Promise.all([
+    getSession(),
+    Promise.resolve(getSplitForClub(slug)),
+  ]);
 
   const range = parseDateRange({
     get: (k: string) => (sp as Record<string, string>)[k] ?? null,
@@ -159,6 +166,39 @@ export default async function ClubPage({
           <ExpenseTable entries={expenses} currency={club.currency} />
         </div>
       </section>
+
+      {split && (
+        <section className="mb-10">
+          <h2 className="text-lg font-semibold text-gray-800 mb-3">Revenue Split</h2>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
+              <p className="text-xs font-semibold text-blue-500 uppercase tracking-wide mb-1">
+                Global Owner ({split.ownerPct}%)
+              </p>
+              <p className="text-2xl font-bold text-blue-700">
+                {formatAmount(Math.round(netIncome * split.ownerPct / 100), club.currency)}
+              </p>
+            </div>
+            <div className={`rounded-xl border p-4 ${split.adminPct > 0 ? "border-green-200 bg-green-50" : "border-gray-200 bg-gray-50"}`}>
+              <p className={`text-xs font-semibold uppercase tracking-wide mb-1 ${split.adminPct > 0 ? "text-green-500" : "text-gray-400"}`}>
+                {session?.role === "club_admin" ? "Your Share" : "Club Admin"} ({split.adminPct}%)
+              </p>
+              <p className={`text-2xl font-bold ${split.adminPct > 0 ? "text-green-700" : "text-gray-400"}`}>
+                {formatAmount(Math.round(netIncome * split.adminPct / 100), club.currency)}
+              </p>
+            </div>
+          </div>
+          <p className="text-xs text-gray-400 mt-2">
+            Based on net income of {formatAmount(netIncome, club.currency)}.
+            {split.adminPct === 0 && " This club's revenue goes fully to the global owner."}
+            {session?.role === "super_admin" && (
+              <Link href="/admin/splits" className="ml-2 text-blue-500 hover:underline">
+                Edit splits →
+              </Link>
+            )}
+          </p>
+        </section>
+      )}
     </div>
   );
 }
