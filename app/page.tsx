@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { buildClubSummaries, fetchBalance, fetchAllPayments, fetchFeesByClub } from "@/lib/stripe-client";
+import { fetchBalance, fetchAllPayments, fetchFeesByClub } from "@/lib/stripe-client";
 import { getCashTotalsPerClub, getAllCashEntries } from "@/lib/cash-store";
 import { formatAmount, CLUBS } from "@/lib/clubs";
 import ClubCard from "@/components/ClubCard";
@@ -7,6 +7,7 @@ import DateFilter from "@/components/DateFilter";
 import RevenueChart from "@/components/RevenueChart";
 import { parseDateRange } from "@/lib/date-range";
 import { buildMonthlyRevenue } from "@/lib/monthly-revenue";
+import type { ClubSummary } from "@/lib/stripe-client";
 
 export const dynamic = "force-dynamic";
 
@@ -43,7 +44,7 @@ export default async function DashboardPage({
   sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
   const chartFromTs = Math.floor(sixMonthsAgo.getTime() / 1000);
 
-  let summaries = null;
+  let summaries: ClubSummary[] | null = null;
   let balance = null;
   let cashTotals: Record<string, number> = {};
   let feesByClub: Record<string, number> = {};
@@ -52,13 +53,40 @@ export default async function DashboardPage({
   let cashEntriesForChart = null;
   let error: string | null = null;
 
+  // Use the wider date range (chart = last 6 months) so we only hit Stripe once.
+  // Filter down to the selected period for summaries in JS — no extra API call.
+  const effectiveFromTs = fromTs && chartFromTs ? Math.min(fromTs, chartFromTs) : (fromTs ?? chartFromTs);
+
   try {
-    [summaries, balance, cashTotals, allPaymentsForChart] = await Promise.all([
-      buildClubSummaries(fromTs, toTs_),
+    const [allPayments, bal, ct] = await Promise.all([
+      fetchAllPayments(effectiveFromTs, toTs_),
       fetchBalance(),
       Promise.resolve(getCashTotalsPerClub(range.from ?? undefined, range.to ?? undefined)),
-      fetchAllPayments(chartFromTs),
     ]);
+
+    balance = bal;
+    cashTotals = ct;
+
+    // Derive chart data (last 6 months)
+    allPaymentsForChart = allPayments.filter((p) => p.created >= chartFromTs);
+
+    // Derive summaries for the selected period
+    const periodPayments = fromTs
+      ? allPayments.filter((p) => p.created >= fromTs && (!toTs_ || p.created <= toTs_))
+      : allPaymentsForChart;
+
+    summaries = CLUBS.map((club) => {
+      const clubPayments = periodPayments.filter(
+        (p) => p.clubSlug === club.slug && p.status === "succeeded"
+      );
+      return {
+        club,
+        payments: clubPayments,
+        totalCents: clubPayments.reduce((s, p) => s + p.amount, 0),
+        successCount: clubPayments.length,
+      };
+    });
+
     cashEntriesForChart = getAllCashEntries(
       sixMonthsAgo.toISOString().slice(0, 10),
       undefined
@@ -67,8 +95,9 @@ export default async function DashboardPage({
     error = e instanceof Error ? e.message : "Failed to load data";
   }
 
+  // Fees fetch is separate and best-effort — cap at 300 records to stay fast
   try {
-    feesByClub = await fetchFeesByClub(fromTs, toTs_);
+    feesByClub = await fetchFeesByClub(fromTs, toTs_, 300);
     feesAvailable = true;
   } catch {
     feesAvailable = false;

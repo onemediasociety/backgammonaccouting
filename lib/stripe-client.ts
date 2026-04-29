@@ -58,7 +58,8 @@ export interface CustomerRecord {
 
 export async function fetchChargesWithFees(
   fromTs?: number,
-  toTs?: number
+  toTs?: number,
+  maxRecords = 500
 ): Promise<ChargeRecord[]> {
   const stripe = getStripe();
   const params: Stripe.ChargeListParams = {
@@ -87,15 +88,17 @@ export async function fetchChargesWithFees(
       refunded: c.refunded,
       amountRefunded: c.amount_refunded,
     });
+    if (results.length >= maxRecords) break;
   }
   return results;
 }
 
 export async function fetchFeesByClub(
   fromTs?: number,
-  toTs?: number
+  toTs?: number,
+  maxRecords = 500
 ): Promise<Record<string, number>> {
-  const charges = await fetchChargesWithFees(fromTs, toTs);
+  const charges = await fetchChargesWithFees(fromTs, toTs, maxRecords);
   const fees: Record<string, number> = {};
   for (const c of charges) {
     if (c.status !== "succeeded") continue;
@@ -140,7 +143,8 @@ export interface ClubSummary {
 
 export async function fetchAllPayments(
   fromTs?: number,
-  toTs?: number
+  toTs?: number,
+  maxRecords = 1000
 ): Promise<PaymentRecord[]> {
   const stripe = getStripe();
   const params: Stripe.PaymentIntentListParams = { limit: 100 };
@@ -160,6 +164,7 @@ export async function fetchAllPayments(
       description: pi.description,
       clubSlug: classifyPayment(pi.amount, pi.currency).slug,
     });
+    if (results.length >= maxRecords) break;
   }
   return results;
 }
