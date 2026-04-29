@@ -15,43 +15,40 @@ export interface CashEntry {
   createdAt: string;
 }
 
-const DATA_FILE = path.join(process.cwd(), "data", "cash-buyins.json");
+// On Vercel the project root is read-only; use /tmp for writes.
+// Reads fall back to the bundled seed file in /data.
+const TMP_FILE = "/tmp/cash-buyins.json";
+const SEED_FILE = path.join(process.cwd(), "data", "cash-buyins.json");
 
 function readStore(): CashEntry[] {
-  try {
-    if (!fs.existsSync(DATA_FILE)) return [];
-    const raw = fs.readFileSync(DATA_FILE, "utf-8");
-    return JSON.parse(raw) as CashEntry[];
-  } catch {
-    return [];
+  // Prefer /tmp (has any entries added at runtime)
+  for (const file of [TMP_FILE, SEED_FILE]) {
+    try {
+      if (fs.existsSync(file)) {
+        const raw = fs.readFileSync(file, "utf-8");
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed as CashEntry[];
+      }
+    } catch {
+      // try next file
+    }
   }
+  return [];
 }
 
 function writeStore(entries: CashEntry[]): void {
-  const dir = path.dirname(DATA_FILE);
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(DATA_FILE, JSON.stringify(entries, null, 2));
+  fs.writeFileSync(TMP_FILE, JSON.stringify(entries, null, 2));
 }
 
 export function getAllCashEntries(from?: string, to?: string): CashEntry[] {
-  const entries = readStore();
-  return filterByDate(entries, from, to);
+  return filterByDate(readStore(), from, to);
 }
 
-export function getCashEntriesForClub(
-  slug: string,
-  from?: string,
-  to?: string
-): CashEntry[] {
-  const entries = readStore().filter((e) => e.clubSlug === slug);
-  return filterByDate(entries, from, to);
+export function getCashEntriesForClub(slug: string, from?: string, to?: string): CashEntry[] {
+  return filterByDate(readStore().filter((e) => e.clubSlug === slug), from, to);
 }
 
-function filterByDate(
-  entries: CashEntry[],
-  from?: string,
-  to?: string
-): CashEntry[] {
+function filterByDate(entries: CashEntry[], from?: string, to?: string): CashEntry[] {
   return entries.filter((e) => {
     if (from && e.date < from) return false;
     if (to && e.date > to) return false;
@@ -59,9 +56,7 @@ function filterByDate(
   });
 }
 
-export function addCashEntry(
-  data: Omit<CashEntry, "id" | "totalAmount" | "createdAt">
-): CashEntry {
+export function addCashEntry(data: Omit<CashEntry, "id" | "totalAmount" | "createdAt">): CashEntry {
   const entries = readStore();
   const entry: CashEntry = {
     ...data,
@@ -83,9 +78,8 @@ export function deleteCashEntry(id: string): boolean {
 }
 
 export function getCashTotalsPerClub(from?: string, to?: string): Record<string, number> {
-  const entries = getAllCashEntries(from, to);
   const totals: Record<string, number> = {};
-  for (const e of entries) {
+  for (const e of getAllCashEntries(from, to)) {
     totals[e.clubSlug] = (totals[e.clubSlug] ?? 0) + e.totalAmount;
   }
   return totals;
