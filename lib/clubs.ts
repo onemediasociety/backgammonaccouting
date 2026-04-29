@@ -88,7 +88,21 @@ export const CLUBS: Club[] = [
     color: "amber",
     accentBg: "bg-amber-50",
     accentText: "text-amber-700",
-    matchFn: (_amount, currency) => currency === "eur",
+    // Paris buy-in is €40
+    matchFn: (amount, currency) => currency === "eur" && amount === 4000,
+  },
+  {
+    slug: "lisbon",
+    name: "Lisbon Backgammon Club",
+    city: "Lisbon",
+    country: "PT",
+    currency: "eur",
+    flag: "🇵🇹",
+    color: "green",
+    accentBg: "bg-green-50",
+    accentText: "text-green-700",
+    // Lisbon buy-in is €23
+    matchFn: (amount, currency) => currency === "eur" && amount === 2300,
   },
   {
     slug: "special",
