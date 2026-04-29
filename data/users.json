@@ -1,1 +1,65 @@
-[]
+[
+  {
+    "id": "fdde21f2-73ed-4646-92aa-47ea57aa9bc0",
+    "username": "admin-nyc",
+    "passwordHash": "8eb61c85d696615d70cace2d21dfeabf2a3373b408d62f3201cb8182dd3e07f7",
+    "role": "club_admin",
+    "clubSlugs": ["nyc"],
+    "createdAt": "2026-04-29T20:27:42.872Z",
+    "updatedAt": "2026-04-29T20:27:42.872Z"
+  },
+  {
+    "id": "af444639-c9f3-43a2-95fa-30e1113c49ba",
+    "username": "admin-dc",
+    "passwordHash": "8eb61c85d696615d70cace2d21dfeabf2a3373b408d62f3201cb8182dd3e07f7",
+    "role": "club_admin",
+    "clubSlugs": ["dc"],
+    "createdAt": "2026-04-29T20:27:42.872Z",
+    "updatedAt": "2026-04-29T20:27:42.872Z"
+  },
+  {
+    "id": "aa2470cc-2322-44f4-bf3a-50f9ec03646d",
+    "username": "admin-miami",
+    "passwordHash": "8eb61c85d696615d70cace2d21dfeabf2a3373b408d62f3201cb8182dd3e07f7",
+    "role": "club_admin",
+    "clubSlugs": ["miami"],
+    "createdAt": "2026-04-29T20:27:42.872Z",
+    "updatedAt": "2026-04-29T20:27:42.872Z"
+  },
+  {
+    "id": "5cb4e72e-8c9e-4ae8-b65f-d956076444f7",
+    "username": "admin-geneva",
+    "passwordHash": "8eb61c85d696615d70cace2d21dfeabf2a3373b408d62f3201cb8182dd3e07f7",
+    "role": "club_admin",
+    "clubSlugs": ["geneva"],
+    "createdAt": "2026-04-29T20:27:42.872Z",
+    "updatedAt": "2026-04-29T20:27:42.872Z"
+  },
+  {
+    "id": "d9e16a47-b46e-41d6-a726-28f4b44da32c",
+    "username": "admin-montreal",
+    "passwordHash": "8eb61c85d696615d70cace2d21dfeabf2a3373b408d62f3201cb8182dd3e07f7",
+    "role": "club_admin",
+    "clubSlugs": ["montreal"],
+    "createdAt": "2026-04-29T20:27:42.872Z",
+    "updatedAt": "2026-04-29T20:27:42.872Z"
+  },
+  {
+    "id": "00cddfe7-0ebf-4ceb-bd9f-6dde89e976b0",
+    "username": "admin-paris",
+    "passwordHash": "8eb61c85d696615d70cace2d21dfeabf2a3373b408d62f3201cb8182dd3e07f7",
+    "role": "club_admin",
+    "clubSlugs": ["paris"],
+    "createdAt": "2026-04-29T20:27:42.872Z",
+    "updatedAt": "2026-04-29T20:27:42.872Z"
+  },
+  {
+    "id": "3bf8210b-eafb-4e79-b278-957d0f637e5a",
+    "username": "admin-special",
+    "passwordHash": "8eb61c85d696615d70cace2d21dfeabf2a3373b408d62f3201cb8182dd3e07f7",
+    "role": "club_admin",
+    "clubSlugs": ["special"],
+    "createdAt": "2026-04-29T20:27:42.872Z",
+    "updatedAt": "2026-04-29T20:27:42.872Z"
+  }
+]
