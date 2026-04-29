@@ -21,9 +21,7 @@ function toTs(dateStr: string | null, endOfDay = false): number | undefined {
   return Math.floor(d.getTime() / 1000);
 }
 
-function KpiCard({
-  label, value, sub, highlight = false,
-}: {
+function KpiCard({ label, value, sub, highlight = false }: {
   label: string; value: string; sub?: string; highlight?: boolean;
 }) {
   return (
@@ -43,24 +41,32 @@ function KpiCard({
   );
 }
 
-export default async function DashboardPage({
-  searchParams,
+function KpiSkeleton() {
+  return (
+    <>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 20 }}>
+        {Array.from({ length: 8 }).map((_, i) => (
+          <div key={i} className="bs-skeleton" style={{ height: 80, borderRadius: 12 }} />
+        ))}
+      </div>
+      <div className="bs-skeleton" style={{ height: 220, borderRadius: 12, marginBottom: 28 }} />
+      <div className="bs-skeleton" style={{ height: 300, borderRadius: 12 }} />
+    </>
+  );
+}
+
+async function OverviewData({
+  effectiveFromTs, fromTs, toTs_, range,
 }: {
-  searchParams: Promise<{ period?: string; from?: string; to?: string }>;
+  effectiveFromTs: number | undefined;
+  fromTs: number | undefined;
+  toTs_: number | undefined;
+  range: { from: string | null; to: string | null; period?: string };
 }) {
-  const sp = await searchParams;
-  const range = parseDateRange({
-    get: (k: string) => (sp as Record<string, string>)[k] ?? null,
-  });
-
-  const fromTs = toTs(range.from);
-  const toTs_ = toTs(range.to, true);
-
+  const CLUBS = getAllClubs();
   const sixMonthsAgo = new Date();
   sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
   const chartFromTs = Math.floor(sixMonthsAgo.getTime() / 1000);
-
-  const CLUBS = getAllClubs();
 
   let summaries: ClubSummary[] | null = null;
   let balance = null;
@@ -72,12 +78,11 @@ export default async function DashboardPage({
   let cashEntriesForChart = null;
   let error: string | null = null;
 
-  const effectiveFromTs = fromTs && chartFromTs ? Math.min(fromTs, chartFromTs) : (fromTs ?? chartFromTs);
-
   try {
-    const [allPayments, bal, ct, et] = await Promise.all([
+    const [allPayments, bal, fees, ct, et] = await Promise.all([
       fetchAllPayments(effectiveFromTs, toTs_),
       fetchBalance(),
+      fetchFeesByClub(fromTs, toTs_, 300).then((f) => { feesAvailable = true; return f; }).catch(() => ({})),
       Promise.resolve(getCashTotalsPerClub(range.from ?? undefined, range.to ?? undefined)),
       Promise.resolve(getExpenseTotalsPerClub(range.from ?? undefined, range.to ?? undefined)),
     ]);
@@ -85,6 +90,7 @@ export default async function DashboardPage({
     balance = bal;
     cashTotals = ct;
     expenseTotals = et;
+    feesByClub = fees;
     allPaymentsForChart = allPayments.filter((p) => p.created >= chartFromTs);
 
     const periodPayments = fromTs
@@ -108,14 +114,6 @@ export default async function DashboardPage({
     error = e instanceof Error ? e.message : "Failed to load data";
   }
 
-  try {
-    feesByClub = await fetchFeesByClub(fromTs, toTs_, 300);
-    feesAvailable = true;
-  } catch {
-    feesAvailable = false;
-  }
-
-  // Aggregate totals (USD only for headline)
   const totalStripeUSD = summaries?.filter(s => s.club.currency === "usd").reduce((s, c) => s + c.totalCents, 0) ?? 0;
   const totalCashUSD = Object.entries(cashTotals).reduce((s, [slug, v]) => {
     const club = CLUBS.find(c => c.slug === slug);
@@ -133,15 +131,10 @@ export default async function DashboardPage({
   const netIncomeUSD = grossProfitUSD - totalFeesUSD;
   const totalTransactions = summaries?.reduce((s, c) => s + c.successCount, 0) ?? 0;
 
-  const periodLabel = range.from && range.to
-    ? `${range.from} – ${range.to}`
-    : range.period === "all" || !range.period ? "All Time" : range.period.toUpperCase();
-
   const monthlyBars = allPaymentsForChart && cashEntriesForChart
     ? buildMonthlyRevenue(allPaymentsForChart, cashEntriesForChart, 6)
     : [];
 
-  // Sort clubs by net income for ranking
   const rankedClubs = CLUBS.map((club) => {
     const summary = summaries?.find(s => s.club.slug === club.slug);
     const stripe = summary?.totalCents ?? 0;
@@ -154,36 +147,17 @@ export default async function DashboardPage({
   }).sort((a, b) => b.net - a.net);
 
   return (
-    <div>
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", flexWrap: "wrap", gap: 12, marginBottom: 24 }}>
-        <div>
-          <h1 className="bs-heading" style={{ fontSize: 28, marginBottom: 3 }}>Overview</h1>
-          <p className="bs-mono" style={{ fontSize: 10, color: "var(--ink-3)", letterSpacing: "0.1em", textTransform: "uppercase" }}>
-            All clubs · {periodLabel}
-          </p>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
-          <ExportButtons from={range.from} to={range.to} period={range.period} mode="overview" />
-          {balance && (
-            <div style={{ display: "flex", gap: 20, alignItems: "center" }}>
-              {balance.available.map((b) => (
-                <div key={b.currency} style={{ textAlign: "right" }}>
-                  <p className="bs-label" style={{ marginBottom: 2 }}>Balance · {b.currency.toUpperCase()}</p>
-                  <p className="bs-amount" style={{ fontSize: 15, fontWeight: 600 }}>{formatAmount(b.amount, b.currency)}</p>
-                </div>
-              ))}
+    <>
+      {balance && (
+        <div style={{ display: "flex", gap: 20, alignItems: "center", justifyContent: "flex-end", marginBottom: 16 }}>
+          {balance.available.map((b) => (
+            <div key={b.currency} style={{ textAlign: "right" }}>
+              <p className="bs-label" style={{ marginBottom: 2 }}>Balance · {b.currency.toUpperCase()}</p>
+              <p className="bs-amount" style={{ fontSize: 15, fontWeight: 600 }}>{formatAmount(b.amount, b.currency)}</p>
             </div>
-          )}
+          ))}
         </div>
-      </div>
-
-      {/* Period filter */}
-      <div className="bs-card" style={{ padding: "14px 18px", marginBottom: 24 }}>
-        <Suspense fallback={null}>
-          <DateFilter />
-        </Suspense>
-      </div>
+      )}
 
       {error && (
         <div style={{
@@ -194,7 +168,6 @@ export default async function DashboardPage({
         </div>
       )}
 
-      {/* KPI grid */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 20 }}>
         <KpiCard label="Net Profit (USD)" value={formatAmount(netIncomeUSD, "usd")} highlight />
         <KpiCard label="Gross Profit (USD)" value={formatAmount(grossProfitUSD, "usd")} sub="Stripe + Cash" />
@@ -205,17 +178,15 @@ export default async function DashboardPage({
         <KpiCard label="Stripe Fees" value={feesAvailable ? `(${formatAmount(totalFeesUSD, "usd")})` : "—"} sub={feesAvailable ? "deducted from net" : "unavailable"} />
         <KpiCard label="Tracked Expenses" value={formatAmount(totalExpensesUSD, "usd")} sub="not included in net" />
         <KpiCard label="Active Clubs" value={CLUBS.length.toString()} />
-        <KpiCard label="Period" value={periodLabel} />
+        <KpiCard label="Transactions" value={totalTransactions.toString()} />
       </div>
 
-      {/* Revenue chart */}
       {monthlyBars.length > 0 && (
         <div style={{ marginBottom: 28 }}>
           <RevenueChart months={monthlyBars} currency="usd" />
         </div>
       )}
 
-      {/* Club ranking table */}
       <div style={{ marginBottom: 12 }}>
         <h2 className="bs-heading" style={{ fontSize: 18 }}>Club Ranking</h2>
       </div>
@@ -259,6 +230,58 @@ export default async function DashboardPage({
           </tbody>
         </table>
       </div>
+    </>
+  );
+}
+
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ period?: string; from?: string; to?: string }>;
+}) {
+  const sp = await searchParams;
+  const range = parseDateRange({
+    get: (k: string) => (sp as Record<string, string>)[k] ?? null,
+  });
+
+  const fromTs = toTs(range.from);
+  const toTs_ = toTs(range.to, true);
+
+  const sixMonthsAgo = new Date();
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+  const chartFromTs = Math.floor(sixMonthsAgo.getTime() / 1000);
+  const effectiveFromTs = fromTs && chartFromTs ? Math.min(fromTs, chartFromTs) : (fromTs ?? chartFromTs);
+
+  const periodLabel = range.from && range.to
+    ? `${range.from} – ${range.to}`
+    : range.period === "all" || !range.period ? "All Time" : range.period.toUpperCase();
+
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", flexWrap: "wrap", gap: 12, marginBottom: 24 }}>
+        <div>
+          <h1 className="bs-heading" style={{ fontSize: 28, marginBottom: 3 }}>Overview</h1>
+          <p className="bs-mono" style={{ fontSize: 10, color: "var(--ink-3)", letterSpacing: "0.1em", textTransform: "uppercase" }}>
+            All clubs · {periodLabel}
+          </p>
+        </div>
+        <ExportButtons from={range.from} to={range.to} period={range.period} mode="overview" />
+      </div>
+
+      <div className="bs-card" style={{ padding: "14px 18px", marginBottom: 24 }}>
+        <Suspense fallback={null}>
+          <DateFilter />
+        </Suspense>
+      </div>
+
+      <Suspense fallback={<KpiSkeleton />}>
+        <OverviewData
+          effectiveFromTs={effectiveFromTs}
+          fromTs={fromTs}
+          toTs_={toTs_}
+          range={range}
+        />
+      </Suspense>
     </div>
   );
 }

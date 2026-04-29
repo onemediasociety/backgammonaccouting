@@ -17,19 +17,50 @@ function toTs(dateStr: string | null, endOfDay = false): number | undefined {
   return Math.floor(d.getTime() / 1000);
 }
 
-export default async function ReportsPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ period?: string; from?: string; to?: string }>;
+function KpiCard({ label, value, sub, highlight = false, negative = false }: {
+  label: string; value: string; sub?: string; highlight?: boolean; negative?: boolean;
 }) {
-  const sp = await searchParams;
-  const range = parseDateRange({
-    get: (k: string) => (sp as Record<string, string>)[k] ?? null,
-  });
+  return (
+    <div className="bs-card" style={{
+      padding: "18px 20px",
+      background: highlight ? "var(--ink)" : undefined,
+      border: highlight ? "none" : undefined,
+    }}>
+      <p className="bs-label" style={{ marginBottom: 6, color: highlight ? "rgba(240,235,226,0.45)" : undefined }}>
+        {label}
+      </p>
+      <p className="bs-mono" style={{
+        fontSize: 20, fontWeight: 700,
+        color: highlight ? "var(--brass)" : negative ? "var(--burgundy)" : "var(--ink)",
+      }}>
+        {value}
+      </p>
+      {sub && <p className="bs-mono" style={{ fontSize: 10, color: highlight ? "rgba(240,235,226,0.35)" : "var(--ink-3)", marginTop: 3 }}>{sub}</p>}
+    </div>
+  );
+}
 
-  const fromTs = toTs(range.from);
-  const toTs_ = toTs(range.to, true);
+function TableSkeleton() {
+  return (
+    <>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 24 }}>
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="bs-skeleton" style={{ height: 88, borderRadius: 12 }} />
+        ))}
+      </div>
+      <div className="bs-skeleton" style={{ height: 380, borderRadius: 12, marginBottom: 28 }} />
+      <div className="bs-skeleton" style={{ height: 160, borderRadius: 12 }} />
+    </>
+  );
+}
 
+async function ReportsData({
+  fromTs, toTs_, range,
+}: {
+  fromTs: number | undefined;
+  toTs_: number | undefined;
+  range: { from: string | null; to: string | null };
+}) {
   let summaries = null;
   let feesByClub: Record<string, number> = {};
   let feesAvailable = false;
@@ -47,11 +78,6 @@ export default async function ReportsPage({
   const cashTotals = getCashTotalsPerClub(range.from ?? undefined, range.to ?? undefined);
   const expenseTotals = getExpenseTotalsPerClub(range.from ?? undefined, range.to ?? undefined);
 
-  const periodLabel =
-    range.from && range.to
-      ? `${range.from} – ${range.to}`
-      : "All Time";
-
   const rows = CLUBS.map((club) => {
     const stripeCents = summaries?.find((s) => s.club.slug === club.slug)?.totalCents ?? 0;
     const cashCents = cashTotals[club.slug] ?? 0;
@@ -67,72 +93,55 @@ export default async function ReportsPage({
   const grandNet = grandGross - grandFees;
 
   return (
-    <div>
-      <div className="mb-6 flex items-center gap-2 text-sm text-gray-500">
-        <Link href="/" className="hover:text-gray-900">Dashboard</Link>
-        <span>/</span>
-        <span className="text-gray-900 font-medium">P&amp;L Report</span>
-      </div>
-
-      <div className="mb-6" style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Profit & Loss Report</h1>
-          <p className="text-gray-500 mt-1">Revenue vs. expenses per club — {periodLabel}</p>
-        </div>
-        <ExportButtons from={range.from} to={range.to} period={range.period} mode="pnl" />
-      </div>
-
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 mb-6">
-        <div className="flex items-center gap-3 mb-3">
-          <span className="text-sm font-semibold text-gray-600">Period:</span>
-          <span className="text-sm text-gray-400">{periodLabel}</span>
-        </div>
-        <Suspense fallback={null}>
-          <DateFilter />
-        </Suspense>
-      </div>
-
+    <>
       {error && (
-        <div className="rounded-lg bg-red-50 border border-red-200 p-4 text-red-700 text-sm mb-6">
+        <div style={{
+          background: "rgba(139,26,26,0.07)", border: "1px solid rgba(139,26,26,0.2)",
+          borderRadius: 10, padding: "14px 18px", marginBottom: 20, fontSize: 13, color: "var(--burgundy)",
+        }}>
           Stripe error: {error}. Cash and expense data still shown.
         </div>
       )}
 
-      {/* USD Summary KPIs */}
-      <div className="grid grid-cols-3 gap-4 mb-8">
-        <KpiBox label="Gross Profit (USD)" value={formatAmount(grandGross, "usd")} />
-        <KpiBox label="Stripe Fees (USD)" value={feesAvailable ? `(${formatAmount(grandFees, "usd")})` : "—"} color="red" />
-        <KpiBox label="Net Profit (USD)" value={formatAmount(grandNet, "usd")} color={grandNet >= 0 ? "green" : "red"} highlight />
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 24 }}>
+        <KpiCard label="Gross Profit (USD)" value={formatAmount(grandGross, "usd")} sub="Stripe + Cash" />
+        <KpiCard label="Stripe Fees (USD)" value={feesAvailable ? `(${formatAmount(grandFees, "usd")})` : "—"} negative />
+        <KpiCard label="Net Profit (USD)" value={formatAmount(grandNet, "usd")} highlight />
       </div>
 
-      {/* P&L Table */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden mb-8">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b border-gray-200">
+      <div className="bs-card" style={{ overflow: "hidden", marginBottom: 28 }}>
+        <table className="bs-table">
+          <thead>
             <tr>
-              <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Club</th>
-              <th className="px-5 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Stripe</th>
-              <th className="px-5 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Cash</th>
-              <th className="px-5 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Gross Profit</th>
-              {feesAvailable && <th className="px-5 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Stripe Fees</th>}
-              <th className="px-5 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Net Profit</th>
+              <th>Club</th>
+              <th style={{ textAlign: "right" }}>Stripe</th>
+              <th style={{ textAlign: "right" }}>Cash</th>
+              <th style={{ textAlign: "right" }}>Gross Profit</th>
+              {feesAvailable && <th style={{ textAlign: "right" }}>Stripe Fees</th>}
+              <th style={{ textAlign: "right" }}>Net Profit</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody>
             {rows.map(({ club, stripeCents, cashCents, grossCents, feeCents, netCents }) => (
-              <tr key={club.slug} className="hover:bg-gray-50">
-                <td className="px-5 py-3">
-                  <Link href={`/clubs/${club.slug}`} className="flex items-center gap-2 hover:text-blue-600">
-                    <span>{club.flag}</span>
-                    <span className="font-medium text-gray-800">{club.name}</span>
-                    <span className="text-xs text-gray-400">{club.currency.toUpperCase()}</span>
+              <tr key={club.slug}>
+                <td>
+                  <Link href={`/clubs/${club.slug}`} style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none", color: "inherit" }}>
+                    <span style={{ fontSize: 16 }}>{club.flag}</span>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 500, color: "var(--ink)" }}>{club.city}</div>
+                      <div className="bs-mono" style={{ fontSize: 10, color: "var(--ink-3)" }}>{club.currency.toUpperCase()}</div>
+                    </div>
                   </Link>
                 </td>
-                <td className="px-5 py-3 text-right text-gray-700">{formatAmount(stripeCents, club.currency)}</td>
-                <td className="px-5 py-3 text-right text-gray-700">{formatAmount(cashCents, club.currency)}</td>
-                <td className="px-5 py-3 text-right font-semibold text-gray-900">{formatAmount(grossCents, club.currency)}</td>
-                {feesAvailable && <td className="px-5 py-3 text-right text-red-600">{feeCents > 0 ? `(${formatAmount(feeCents, club.currency)})` : "—"}</td>}
-                <td className={`px-5 py-3 text-right font-bold ${netCents >= 0 ? "text-green-600" : "text-red-600"}`}>
+                <td className="bs-amount" style={{ textAlign: "right", fontSize: 12 }}>{formatAmount(stripeCents, club.currency)}</td>
+                <td className="bs-amount" style={{ textAlign: "right", fontSize: 12 }}>{formatAmount(cashCents, club.currency)}</td>
+                <td className="bs-amount" style={{ textAlign: "right", fontSize: 12, fontWeight: 600 }}>{formatAmount(grossCents, club.currency)}</td>
+                {feesAvailable && (
+                  <td className="bs-amount bs-amount-negative" style={{ textAlign: "right", fontSize: 12 }}>
+                    {feeCents > 0 ? `(${formatAmount(feeCents, club.currency)})` : "—"}
+                  </td>
+                )}
+                <td className="bs-amount" style={{ textAlign: "right", fontSize: 13, fontWeight: 700, color: netCents >= 0 ? "var(--green, #1f4d3a)" : "var(--burgundy)" }}>
                   {formatAmount(netCents, club.currency)}
                 </td>
               </tr>
@@ -141,77 +150,85 @@ export default async function ReportsPage({
         </table>
       </div>
 
-      {/* Tracked Expenses (informational only — not included in net profit) */}
-      <section>
-        <h2 className="text-lg font-semibold text-gray-800 mb-1">Tracked Expenses by Club</h2>
-        <p className="text-sm text-gray-400 mb-4">For reference only — expenses are not deducted from Net Profit.</p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {rows.filter((r) => r.expenseCents > 0).map(({ club, expenseCents, grossCents }) => {
-            const pct = grossCents > 0 ? Math.round((expenseCents / grossCents) * 100) : 0;
-            return (
-              <div key={club.slug} className={`rounded-xl border border-gray-200 p-4 ${club.accentBg}`}>
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="text-xl">{club.flag}</span>
-                  <span className="font-semibold text-gray-800">{club.city}</span>
+      {rows.some((r) => r.expenseCents > 0) && (
+        <section>
+          <h2 className="bs-heading" style={{ fontSize: 18, marginBottom: 4 }}>Tracked Expenses by Club</h2>
+          <p style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 16 }}>
+            For reference only — not deducted from Net Profit.
+          </p>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+            {rows.filter((r) => r.expenseCents > 0).map(({ club, expenseCents, grossCents }) => {
+              const pct = grossCents > 0 ? Math.round((expenseCents / grossCents) * 100) : 0;
+              return (
+                <div key={club.slug} className="bs-card" style={{ padding: "16px 18px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                    <span style={{ fontSize: 18 }}>{club.flag}</span>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)" }}>{club.city}</span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4 }}>
+                    <span style={{ color: "var(--ink-3)" }}>Expenses</span>
+                    <span style={{ fontWeight: 600, color: "var(--burgundy)" }}>{formatAmount(expenseCents, club.currency)}</span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 8 }}>
+                    <span style={{ color: "var(--ink-3)" }}>% of Gross</span>
+                    <span style={{ fontWeight: 600, color: "var(--ink-2)" }}>{pct}%</span>
+                  </div>
+                  <div style={{ height: 4, borderRadius: 2, background: "var(--rule)", overflow: "hidden" }}>
+                    <div style={{ height: "100%", background: "var(--burgundy)", borderRadius: 2, width: `${Math.min(pct, 100)}%` }} />
+                  </div>
                 </div>
-                <div className="space-y-1">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">Expenses</span>
-                    <span className="font-semibold text-red-600">{formatAmount(expenseCents, club.currency)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">% of Gross</span>
-                    <span className="font-semibold text-gray-700">{pct}%</span>
-                  </div>
-                  <div className="mt-2 h-1.5 rounded-full bg-gray-200 overflow-hidden">
-                    <div className="h-full bg-red-400 rounded-full" style={{ width: `${Math.min(pct, 100)}%` }} />
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-          {rows.every((r) => r.expenseCents === 0) && (
-            <div className="col-span-3 rounded-lg border border-dashed border-gray-200 p-8 text-center text-gray-400 text-sm">
-              No expenses recorded. Expenses are tracked on each club page.
-            </div>
-          )}
-        </div>
-      </section>
-    </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+    </>
   );
 }
 
-function KpiBox({
-  label,
-  value,
-  color = "default",
-  highlight = false,
+export default async function ReportsPage({
+  searchParams,
 }: {
-  label: string;
-  value: string;
-  color?: "default" | "red" | "green";
-  highlight?: boolean;
+  searchParams: Promise<{ period?: string; from?: string; to?: string }>;
 }) {
-  const bg = highlight
-    ? color === "green"
-      ? "bg-green-600 border-green-700 text-white"
-      : color === "red"
-      ? "bg-red-600 border-red-700 text-white"
-      : "bg-blue-600 border-blue-700 text-white"
-    : "bg-white border-gray-200";
-  const labelCls = highlight ? "text-white/70" : "text-gray-400";
-  const valueCls = highlight
-    ? "text-white"
-    : color === "red"
-    ? "text-red-600"
-    : color === "green"
-    ? "text-green-600"
-    : "text-gray-900";
+  const sp = await searchParams;
+  const range = parseDateRange({
+    get: (k: string) => (sp as Record<string, string>)[k] ?? null,
+  });
+
+  const fromTs = toTs(range.from);
+  const toTs_ = toTs(range.to, true);
+
+  const periodLabel = range.from && range.to
+    ? `${range.from} – ${range.to}`
+    : "All Time";
 
   return (
-    <div className={`rounded-xl border p-5 ${bg}`}>
-      <p className={`text-xs font-semibold uppercase tracking-wide mb-1 ${labelCls}`}>{label}</p>
-      <p className={`text-2xl font-bold ${valueCls}`}>{value}</p>
+    <div>
+      <p className="bs-mono" style={{ fontSize: 10, color: "var(--ink-3)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>
+        <Link href="/" style={{ color: "inherit", textDecoration: "none" }}>Overview</Link>
+        {" / "}Reports
+      </p>
+
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 12, marginBottom: 24 }}>
+        <div>
+          <h1 className="bs-heading" style={{ fontSize: 28, marginBottom: 3 }}>Profit & Loss</h1>
+          <p className="bs-mono" style={{ fontSize: 10, color: "var(--ink-3)", letterSpacing: "0.1em", textTransform: "uppercase" }}>
+            All clubs · {periodLabel}
+          </p>
+        </div>
+        <ExportButtons from={range.from} to={range.to} period={range.period} mode="pnl" />
+      </div>
+
+      <div className="bs-card" style={{ padding: "14px 18px", marginBottom: 24 }}>
+        <Suspense fallback={null}>
+          <DateFilter />
+        </Suspense>
+      </div>
+
+      <Suspense fallback={<TableSkeleton />}>
+        <ReportsData fromTs={fromTs} toTs_={toTs_} range={range} />
+      </Suspense>
     </div>
   );
 }
