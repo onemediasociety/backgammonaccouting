@@ -15,6 +15,7 @@ export interface Expense {
   amountCents: number;
   currency: string;
   notes: string;
+  receiptUrl?: string;
   createdAt: string;
 }
 

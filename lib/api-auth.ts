@@ -9,6 +9,19 @@ async function getApiSession(): Promise<SessionPayload | null> {
   return verifySession(token);
 }
 
+export async function requireAnyAdminApi(): Promise<
+  { session: SessionPayload } | NextResponse
+> {
+  const session = await getApiSession();
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  if (session.status === "pending") {
+    return NextResponse.json({ error: "Account pending approval" }, { status: 403 });
+  }
+  return { session };
+}
+
 export async function requireSuperAdminApi(): Promise<
   { session: SessionPayload } | NextResponse
 > {

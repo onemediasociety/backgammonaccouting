@@ -71,6 +71,11 @@ export default function ExpenseTable({ entries, currency }: Props) {
                 <td>
                   <div style={{ fontSize: 13, color: "var(--ink-2)" }}>{e.description}</div>
                   {e.notes && <div className="bs-mono" style={{ fontSize: 10, color: "var(--ink-3)" }}>{e.notes}</div>}
+                  {e.receiptUrl && (
+                    <a href={e.receiptUrl} target="_blank" rel="noreferrer" style={{ fontSize: 10, color: "var(--brass)", fontFamily: "var(--font-dm-mono, monospace)", textDecoration: "none" }}>
+                      View receipt ↗
+                    </a>
+                  )}
                 </td>
                 <td className="bs-amount bs-amount-negative" style={{ textAlign: "right", fontSize: 13, fontWeight: 600 }}>
                   {formatAmount(e.amountCents, e.currency)}
