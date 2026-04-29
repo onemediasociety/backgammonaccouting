@@ -17,14 +17,17 @@ export default async function PrintPage({
   params,
   searchParams,
 }: {
-  params: { slug: string };
-  searchParams: { from?: string; to?: string; period?: string };
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ from?: string; to?: string; period?: string }>;
 }) {
-  const club = getClub(params.slug);
+  const { slug } = await params;
+  const sp = await searchParams;
+
+  const club = getClub(slug);
   if (!club) notFound();
 
   const range = parseDateRange({
-    get: (k: string) => (searchParams as Record<string, string>)[k] ?? null,
+    get: (k: string) => (sp as Record<string, string>)[k] ?? null,
   });
 
   const fromTs = toTs(range.from);
@@ -44,9 +47,7 @@ export default async function PrintPage({
   const cashTotal = cashEntries.reduce((s, e) => s + e.totalAmount, 0);
 
   const periodLabel =
-    range.from && range.to
-      ? `${range.from} – ${range.to}`
-      : "All Time";
+    range.from && range.to ? `${range.from} – ${range.to}` : "All Time";
 
   const printedAt = new Date().toLocaleString("en-US", {
     dateStyle: "medium",
@@ -74,10 +75,7 @@ export default async function PrintPage({
           .summary-box .value { font-size: 18px; font-weight: 700; margin-top: 2px; }
           .highlight { background: #1d4ed8; color: white; }
           .highlight .label { color: #bfdbfe; }
-          @media print {
-            @page { margin: 20mm; }
-            body { padding: 0; }
-          }
+          @media print { @page { margin: 20mm; } body { padding: 0; } }
         `}</style>
       </head>
       <body>
@@ -105,10 +103,7 @@ export default async function PrintPage({
             <table>
               <thead>
                 <tr>
-                  <th>Date</th>
-                  <th>Description</th>
-                  <th className="right">Amount</th>
-                  <th>ID</th>
+                  <th>Date</th><th>Description</th><th className="right">Amount</th><th>ID</th>
                 </tr>
               </thead>
               <tbody>
@@ -136,11 +131,7 @@ export default async function PrintPage({
             <table>
               <thead>
                 <tr>
-                  <th>Date</th>
-                  <th>Event</th>
-                  <th className="right">Players</th>
-                  <th className="right">Buy-in</th>
-                  <th className="right">Total</th>
+                  <th>Date</th><th>Event</th><th className="right">Players</th><th className="right">Buy-in</th><th className="right">Total</th>
                 </tr>
               </thead>
               <tbody>

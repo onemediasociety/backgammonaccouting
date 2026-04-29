@@ -26,10 +26,11 @@ function BalancePill({ label, amount, currency }: { label: string; amount: numbe
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: { period?: string; from?: string; to?: string };
+  searchParams: Promise<{ period?: string; from?: string; to?: string }>;
 }) {
+  const sp = await searchParams;
   const range = parseDateRange({
-    get: (k: string) => (searchParams as Record<string, string>)[k] ?? null,
+    get: (k: string) => (sp as Record<string, string>)[k] ?? null,
   });
 
   const fromTs = toTs(range.from);
@@ -145,7 +146,7 @@ export default async function DashboardPage({
               hasError={!!error}
               periodQuery={
                 range.period !== "all"
-                  ? new URLSearchParams(searchParams as Record<string, string>).toString()
+                  ? new URLSearchParams(sp as Record<string, string>).toString()
                   : ""
               }
             />
