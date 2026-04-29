@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { slug, name, city, country, currency, flag } = body;
+  const { slug, name, city, country, currency, flag, ticketCents } = body;
 
   if (!slug || !name || !city || !currency || !flag) {
     return NextResponse.json({ error: "Missing required fields." }, { status: 400 });
@@ -37,7 +37,11 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const club = createExtraClub({ slug: slugClean, name, city, country: country || "", currency: currency.toLowerCase(), flag });
+    const club = createExtraClub({
+      slug: slugClean, name, city, country: country || "",
+      currency: currency.toLowerCase(), flag,
+      ticketCents: ticketCents ? Number(ticketCents) : undefined,
+    });
     return NextResponse.json(club, { status: 201 });
   } catch (e: unknown) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "Failed" }, { status: 409 });

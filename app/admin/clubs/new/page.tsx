@@ -8,7 +8,7 @@ const CURRENCIES = ["usd", "eur", "gbp", "cad", "chf", "aud", "jpy", "mxn", "brl
 
 export default function NewClubPage() {
   const router = useRouter();
-  const [form, setForm] = useState({ slug: "", name: "", city: "", country: "", currency: "usd", flag: "🎲" });
+  const [form, setForm] = useState({ slug: "", name: "", city: "", country: "", currency: "usd", flag: "🎲", ticketPrice: "" });
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -24,7 +24,10 @@ export default function NewClubPage() {
       const res = await fetch("/api/admin/clubs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          ...form,
+          ticketCents: form.ticketPrice ? Math.round(parseFloat(form.ticketPrice) * 100) : undefined,
+        }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? "Failed to create club."); return; }
@@ -71,9 +74,14 @@ export default function NewClubPage() {
               </select>
             </Field>
           </div>
-          <Field label="Flag / Emoji">
-            <input type="text" value={form.flag} onChange={(e) => set("flag", e.target.value)} style={{ ...inputStyle, fontSize: 20, textAlign: "center", width: 60 }} />
-          </Field>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <Field label="Flag / Emoji">
+              <input type="text" value={form.flag} onChange={(e) => set("flag", e.target.value)} style={{ ...inputStyle, fontSize: 20, textAlign: "center" }} />
+            </Field>
+            <Field label="Ticket Price (optional)">
+              <input type="number" min="0" step="0.01" value={form.ticketPrice} onChange={(e) => set("ticketPrice", e.target.value)} style={inputStyle} placeholder="25.00" />
+            </Field>
+          </div>
         </div>
 
         {error && (

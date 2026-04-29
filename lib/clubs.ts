@@ -8,6 +8,7 @@ export interface Club {
   color: string;
   accentBg: string;
   accentText: string;
+  ticketCents?: number;
   matchFn: (amount: number, currency: string) => boolean;
 }
 
@@ -22,11 +23,11 @@ export const CLUBS: Club[] = [
     color: "blue",
     accentBg: "bg-blue-50",
     accentText: "text-blue-700",
-    // $26 = base price; $27 = $26 + Stripe automatic tax (~3.85%)
-    // Both map to NYC — the only $26 Stripe product (prod_TgUTQ67JBNXER8).
-    // DC will need its own Stripe product before online payments can be split.
+    ticketCents: 2600,
+    // Match any multiple of the $26 ticket price; description keyword used first.
+    // $27 single-ticket (with Stripe tax) is still caught by description matching.
     matchFn: (amount, currency) =>
-      currency === "usd" && (amount === 2600 || amount === 2700),
+      currency === "usd" && amount > 0 && amount % 2600 === 0,
   },
   {
     slug: "dc",
@@ -51,8 +52,8 @@ export const CLUBS: Club[] = [
     color: "green",
     accentBg: "bg-emerald-50",
     accentText: "text-emerald-700",
-    // Miami price is $25.00
-    matchFn: (amount, currency) => currency === "usd" && amount === 2500,
+    ticketCents: 2500,
+    matchFn: (amount, currency) => currency === "usd" && amount > 0 && amount % 2500 === 0,
   },
   {
     slug: "geneva",
@@ -88,8 +89,8 @@ export const CLUBS: Club[] = [
     color: "amber",
     accentBg: "bg-amber-50",
     accentText: "text-amber-700",
-    // Paris buy-in is €40
-    matchFn: (amount, currency) => currency === "eur" && amount === 4000,
+    ticketCents: 4000,
+    matchFn: (amount, currency) => currency === "eur" && amount > 0 && amount % 4000 === 0,
   },
   {
     slug: "lisbon",
@@ -101,8 +102,8 @@ export const CLUBS: Club[] = [
     color: "green",
     accentBg: "bg-green-50",
     accentText: "text-green-700",
-    // Lisbon buy-in is €23
-    matchFn: (amount, currency) => currency === "eur" && amount === 2300,
+    ticketCents: 2300,
+    matchFn: (amount, currency) => currency === "eur" && amount > 0 && amount % 2300 === 0,
   },
   {
     slug: "hollywood",
@@ -114,8 +115,10 @@ export const CLUBS: Club[] = [
     color: "orange",
     accentBg: "bg-orange-50",
     accentText: "text-orange-700",
-    // $27 same as NYC — distinguished by description keyword matching only
-    matchFn: () => false,
+    ticketCents: 2700,
+    // $27 same as NYC — description keyword matching takes priority; amount fallback won't fire
+    // because NYC ($26 multiples) comes first in the array and $27 isn't a multiple of $26.
+    matchFn: (amount, currency) => currency === "usd" && amount > 0 && amount % 2700 === 0,
   },
   {
     slug: "special",

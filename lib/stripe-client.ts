@@ -1,5 +1,6 @@
 import Stripe from "stripe";
 import { classifyPayment, CLUBS, type Club } from "./clubs";
+import { getVenueMappings } from "./venues-store";
 
 let stripeInstance: Stripe | null = null;
 
@@ -74,8 +75,14 @@ const DESCRIPTION_KEYWORDS: Array<{ slug: string; keywords: string[] }> = [
 function classifyByDescription(description: string | null): string | null {
   if (!description) return null;
   const upper = description.toUpperCase();
+  // 1. Check hardcoded city keywords
   for (const { keywords, slug } of DESCRIPTION_KEYWORDS) {
     if (keywords.some((k) => upper.includes(k))) return slug;
+  }
+  // 2. Check admin-configured venue mappings
+  const venues = getVenueMappings();
+  for (const { keyword, clubSlug } of venues) {
+    if (upper.includes(keyword)) return clubSlug;
   }
   return null;
 }

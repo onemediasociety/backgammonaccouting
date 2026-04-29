@@ -3,6 +3,8 @@ import { requireSuperAdmin } from "@/lib/get-session";
 import { getAllUsers } from "@/lib/users-store";
 import { getAllClubs } from "@/lib/clubs-server";
 import { getExtraClubs } from "@/lib/clubs-store";
+import { getVenueMappings } from "@/lib/venues-store";
+import VenueManager from "@/components/VenueManager";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +13,8 @@ export default async function AdminSettingsPage() {
   const users = getAllUsers();
   const allClubs = getAllClubs();
   const extraSlugs = new Set(getExtraClubs().map((c) => c.slug));
+  const venues = getVenueMappings();
+  const clubOptions = allClubs.map((c) => ({ slug: c.slug, city: c.city, flag: c.flag }));
 
   return (
     <div>
@@ -129,6 +133,19 @@ export default async function AdminSettingsPage() {
           </div>
         </section>
       </div>
+
+      {/* Venue Mappings */}
+      <section style={{ marginTop: 28 }}>
+        <div style={{ marginBottom: 12 }}>
+          <h2 className="bs-heading" style={{ fontSize: 18, marginBottom: 3 }}>Venue Mappings</h2>
+          <p style={{ fontSize: 12, color: "var(--ink-3)", margin: 0 }}>
+            Map venue or product name keywords to a city. When a Stripe payment description contains a keyword (case-insensitive), it's attributed to that city.
+          </p>
+        </div>
+        <div className="bs-card" style={{ overflow: "hidden", maxWidth: 560 }}>
+          <VenueManager initial={venues} clubs={clubOptions} />
+        </div>
+      </section>
     </div>
   );
 }

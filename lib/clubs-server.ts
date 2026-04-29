@@ -15,7 +15,10 @@ export function getAllClubs(): Club[] {
       color: "gray",
       accentBg: "bg-gray-50",
       accentText: "text-gray-700",
-      matchFn: () => false,
+      ticketCents: e.ticketCents,
+      matchFn: e.ticketCents
+        ? (amount, currency) => currency === e.currency && amount > 0 && amount % e.ticketCents! === 0
+        : () => false,
     }));
   return [...CLUBS, ...extra];
 }

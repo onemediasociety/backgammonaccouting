@@ -8,6 +8,7 @@ export interface DynamicClub {
   country: string;
   currency: string;
   flag: string;
+  ticketCents?: number;
 }
 
 const TMP_FILE = "/tmp/clubs-extra.json";
