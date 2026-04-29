@@ -7,7 +7,8 @@ import { getCashEntriesForClub } from "@/lib/cash-store";
 import TransactionTable from "@/components/TransactionTable";
 import CashTable from "@/components/CashTable";
 import AddCashForm from "@/components/AddCashForm";
-import DateFilter, { parseDateRange } from "@/components/DateFilter";
+import DateFilter from "@/components/DateFilter"
+import { parseDateRange } from "@/lib/date-range";
 import ExportButtons from "@/components/ExportButtons";
 
 export const dynamic = "force-dynamic";

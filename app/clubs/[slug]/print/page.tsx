@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { getClub, formatAmount } from "@/lib/clubs";
 import { fetchPaymentsForClub } from "@/lib/stripe-client";
 import { getCashEntriesForClub } from "@/lib/cash-store";
-import { parseDateRange } from "@/components/DateFilter";
+import { parseDateRange } from "@/lib/date-range";
 
 export const dynamic = "force-dynamic";
 

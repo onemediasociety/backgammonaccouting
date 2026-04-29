@@ -3,7 +3,8 @@ import { buildClubSummaries, fetchBalance } from "@/lib/stripe-client";
 import { getCashTotalsPerClub } from "@/lib/cash-store";
 import { formatAmount, CLUBS } from "@/lib/clubs";
 import ClubCard from "@/components/ClubCard";
-import DateFilter, { parseDateRange, getDateRange } from "@/components/DateFilter";
+import DateFilter from "@/components/DateFilter"
+import { parseDateRange, getDateRange } from "@/lib/date-range";
 
 export const dynamic = "force-dynamic";
 
