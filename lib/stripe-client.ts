@@ -57,6 +57,37 @@ export interface CustomerRecord {
   currency: string;
 }
 
+// Keywords to match against the Stripe charge description (case-insensitive).
+// Description is typically the product name, e.g. "NYC BACKGAMMON SOCIETY" or
+// "2 × Backgammon Club Miami (at $25.00)" for multi-ticket purchases.
+const DESCRIPTION_KEYWORDS: Array<{ slug: string; keywords: string[] }> = [
+  { slug: "nyc",      keywords: ["NYC", "NEW YORK"] },
+  { slug: "miami",    keywords: ["MIAMI"] },
+  { slug: "geneva",   keywords: ["GENEVA"] },
+  { slug: "montreal", keywords: ["MONTREAL"] },
+  { slug: "paris",    keywords: ["PARIS"] },
+  { slug: "lisbon",   keywords: ["LISBON"] },
+  { slug: "dc",       keywords: ["WASHINGTON", "D.C."] },
+];
+
+function classifyByDescription(description: string | null): string | null {
+  if (!description) return null;
+  const upper = description.toUpperCase();
+  for (const { keywords, slug } of DESCRIPTION_KEYWORDS) {
+    if (keywords.some((k) => upper.includes(k))) return slug;
+  }
+  return null;
+}
+
+// Classify a payment: description first, then exact amount+currency fallback.
+function getClubSlug(
+  amount: number,
+  currency: string,
+  description: string | null
+): string {
+  return classifyByDescription(description) ?? classifyPayment(amount, currency).slug;
+}
+
 export async function fetchChargesWithFees(
   fromTs?: number,
   toTs?: number,
@@ -85,7 +116,7 @@ export async function fetchChargesWithFees(
       created: c.created,
       description: c.description,
       receiptUrl: c.receipt_url ?? null,
-      clubSlug: classifyPayment(c.amount, c.currency).slug,
+      clubSlug: getClubSlug(c.amount, c.currency, c.description),
       refunded: c.refunded,
       amountRefunded: c.amount_refunded,
     });
@@ -148,7 +179,13 @@ export async function fetchAllPayments(
   maxRecords = 1000
 ): Promise<PaymentRecord[]> {
   const stripe = getStripe();
-  const params: Stripe.PaymentIntentListParams = { limit: 100 };
+  const params: Stripe.PaymentIntentListParams = {
+    limit: 100,
+    // Expand latest_charge to get the description (product name), which lets us
+    // correctly classify multi-ticket purchases and payments where amount alone
+    // is ambiguous.
+    expand: ["data.latest_charge"],
+  };
   if (fromTs || toTs) {
     params.created = {};
     if (fromTs) (params.created as Stripe.RangeQueryParam).gte = fromTs;
@@ -156,22 +193,24 @@ export async function fetchAllPayments(
   }
   const results: PaymentRecord[] = [];
   for await (const pi of stripe.paymentIntents.list(params)) {
+    const charge = pi.latest_charge as Stripe.Charge | null;
+    const description = charge?.description ?? pi.description;
     results.push({
       id: pi.id,
       amount: pi.amount,
       currency: pi.currency,
       status: pi.status,
       created: pi.created,
-      description: pi.description,
-      clubSlug: classifyPayment(pi.amount, pi.currency).slug,
-      customerName: null,
+      description,
+      clubSlug: getClubSlug(pi.amount, pi.currency, description),
+      customerName: charge?.billing_details?.name ?? null,
     });
     if (results.length >= maxRecords) break;
   }
   return results;
 }
 
-// Fetches payments for a specific club with billing_details expanded for customer names.
+// Fetches payments for a specific club with billing_details for customer names.
 export async function fetchPaymentsForClub(
   slug: string,
   fromTs?: number,
@@ -190,16 +229,17 @@ export async function fetchPaymentsForClub(
   }
   const results: PaymentRecord[] = [];
   for await (const pi of stripe.paymentIntents.list(params)) {
-    const clubSlug = classifyPayment(pi.amount, pi.currency).slug;
-    if (clubSlug !== slug) continue;
     const charge = pi.latest_charge as Stripe.Charge | null;
+    const description = charge?.description ?? pi.description;
+    const clubSlug = getClubSlug(pi.amount, pi.currency, description);
+    if (clubSlug !== slug) continue;
     results.push({
       id: pi.id,
       amount: pi.amount,
       currency: pi.currency,
       status: pi.status,
       created: pi.created,
-      description: pi.description,
+      description,
       clubSlug,
       customerName: charge?.billing_details?.name ?? null,
     });
