@@ -63,7 +63,7 @@ export function getDateRange(period: Period, from?: string, to?: string): DateRa
 export function parseDateRange(searchParams: {
   get: (k: string) => string | null;
 }): DateRange {
-  const period = (searchParams.get("period") as Period) ?? "ytd";
+  const period = (searchParams.get("period") as Period) ?? "month";
   const from = searchParams.get("from") ?? undefined;
   const to = searchParams.get("to") ?? undefined;
   return getDateRange(period, from, to);
