@@ -20,6 +20,7 @@ export interface PaymentRecord {
   created: number;
   description: string | null;
   clubSlug: string;
+  customerName: string | null;
 }
 
 export interface ChargeRecord {
@@ -163,19 +164,48 @@ export async function fetchAllPayments(
       created: pi.created,
       description: pi.description,
       clubSlug: classifyPayment(pi.amount, pi.currency).slug,
+      customerName: null,
     });
     if (results.length >= maxRecords) break;
   }
   return results;
 }
 
+// Fetches payments for a specific club with billing_details expanded for customer names.
 export async function fetchPaymentsForClub(
   slug: string,
   fromTs?: number,
-  toTs?: number
+  toTs?: number,
+  maxRecords = 500
 ): Promise<PaymentRecord[]> {
-  const all = await fetchAllPayments(fromTs, toTs);
-  return all.filter((p) => p.clubSlug === slug);
+  const stripe = getStripe();
+  const params: Stripe.PaymentIntentListParams = {
+    limit: 100,
+    expand: ["data.latest_charge"],
+  };
+  if (fromTs || toTs) {
+    params.created = {};
+    if (fromTs) (params.created as Stripe.RangeQueryParam).gte = fromTs;
+    if (toTs) (params.created as Stripe.RangeQueryParam).lte = toTs;
+  }
+  const results: PaymentRecord[] = [];
+  for await (const pi of stripe.paymentIntents.list(params)) {
+    const clubSlug = classifyPayment(pi.amount, pi.currency).slug;
+    if (clubSlug !== slug) continue;
+    const charge = pi.latest_charge as Stripe.Charge | null;
+    results.push({
+      id: pi.id,
+      amount: pi.amount,
+      currency: pi.currency,
+      status: pi.status,
+      created: pi.created,
+      description: pi.description,
+      clubSlug,
+      customerName: charge?.billing_details?.name ?? null,
+    });
+    if (results.length >= maxRecords) break;
+  }
+  return results;
 }
 
 export async function fetchBalance(): Promise<Stripe.Balance> {
