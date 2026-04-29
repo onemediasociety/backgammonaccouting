@@ -27,24 +27,8 @@ export default function ClubCard({
   const href = `/clubs/${club.slug}${periodQuery ? `?${periodQuery}` : ""}`;
 
   return (
-    <Link href={href} style={{ textDecoration: "none" }}>
-      <div
-        className="bs-card"
-        style={{
-          padding: "20px",
-          height: "100%",
-          transition: "box-shadow 150ms, transform 150ms",
-          cursor: "pointer",
-        }}
-        onMouseEnter={(e) => {
-          (e.currentTarget as HTMLDivElement).style.boxShadow = "0 4px 20px rgba(26,22,17,0.1)";
-          (e.currentTarget as HTMLDivElement).style.transform = "translateY(-1px)";
-        }}
-        onMouseLeave={(e) => {
-          (e.currentTarget as HTMLDivElement).style.boxShadow = "";
-          (e.currentTarget as HTMLDivElement).style.transform = "";
-        }}
-      >
+    <Link href={href} className="bs-card-link">
+      <div className="bs-card" style={{ padding: "20px", height: "100%", cursor: "pointer" }}>
         {/* Header */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
           <div>

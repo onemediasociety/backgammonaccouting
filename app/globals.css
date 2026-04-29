@@ -258,6 +258,21 @@ body {
   border-radius: 12px;
 }
 
+.bs-card-link {
+  display: block;
+  text-decoration: none;
+  height: 100%;
+}
+
+.bs-card-link .bs-card {
+  transition: box-shadow 150ms, transform 150ms;
+}
+
+.bs-card-link:hover .bs-card {
+  box-shadow: 0 4px 20px rgba(26, 22, 17, 0.1);
+  transform: translateY(-1px);
+}
+
 /* ── Typography helpers ────────────────────────────────────────── */
 .bs-heading {
   font-family: var(--font-cormorant, 'Cormorant Garamond', Georgia, serif);
