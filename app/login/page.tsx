@@ -23,7 +23,8 @@ function LoginForm() {
         body: JSON.stringify({ username, password }),
       });
       if (res.ok) {
-        router.push(from);
+        const data = await res.json();
+        router.push(data.status === "pending" ? "/pending" : from);
         router.refresh();
       } else {
         setError("Invalid credentials. Please try again.");
@@ -145,7 +146,11 @@ function LoginForm() {
           </form>
         </div>
 
-        <p style={{ textAlign: "center", fontSize: 11, color: "var(--ink-3)", marginTop: 16 }}>
+        <p style={{ textAlign: "center", fontSize: 12, color: "var(--ink-3)", marginTop: 16 }}>
+          New club admin?{" "}
+          <a href="/register" style={{ color: "var(--brass)", textDecoration: "none" }}>Create an account</a>
+        </p>
+        <p style={{ textAlign: "center", fontSize: 11, color: "var(--ink-3)", marginTop: 8 }}>
           Super admins: username{" "}
           <span style={{ fontFamily: "var(--font-dm-mono, monospace)", background: "var(--paper-2)", padding: "1px 5px", borderRadius: 3 }}>admin</span>
           {" "}+ site password

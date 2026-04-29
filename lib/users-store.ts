@@ -8,6 +8,7 @@ export interface User {
   username: string;
   passwordHash: string;
   role: "club_admin"; // only stored role; super_admin is virtual-only via SITE_PASSWORD
+  status: "active" | "pending";
   clubSlugs: string[];
   createdAt: string;
   updatedAt: string;
@@ -34,7 +35,9 @@ function readStore(): User[] {
 }
 
 function writeStore(users: User[]): void {
-  fs.writeFileSync(TMP_FILE, JSON.stringify(users, null, 2));
+  const json = JSON.stringify(users, null, 2);
+  fs.writeFileSync(TMP_FILE, json);
+  try { fs.writeFileSync(SEED_FILE, json); } catch { /* read-only on some deployments */ }
 }
 
 export function hashPassword(password: string): string {
@@ -64,6 +67,7 @@ export function createUser(data: {
   username: string;
   password: string;
   clubSlugs: string[];
+  status?: "active" | "pending";
 }): SafeUser {
   const users = readStore();
   if (users.some((u) => u.username.toLowerCase() === data.username.toLowerCase())) {
@@ -75,6 +79,7 @@ export function createUser(data: {
     username: data.username,
     passwordHash: hashPassword(data.password),
     role: "club_admin",
+    status: data.status ?? "active",
     clubSlugs: data.clubSlugs,
     createdAt: now,
     updatedAt: now,
@@ -85,9 +90,16 @@ export function createUser(data: {
   return safe;
 }
 
+export function registerUser(data: {
+  username: string;
+  password: string;
+}): SafeUser {
+  return createUser({ username: data.username, password: data.password, clubSlugs: [], status: "pending" });
+}
+
 export function updateUser(
   id: string,
-  data: { username?: string; password?: string; clubSlugs?: string[] }
+  data: { username?: string; password?: string; clubSlugs?: string[]; status?: "active" | "pending" }
 ): SafeUser {
   const users = readStore();
   const idx = users.findIndex((u) => u.id === id);
@@ -105,6 +117,9 @@ export function updateUser(
   }
   if (data.clubSlugs !== undefined) {
     users[idx].clubSlugs = data.clubSlugs;
+  }
+  if (data.status !== undefined) {
+    users[idx].status = data.status;
   }
   users[idx].updatedAt = new Date().toISOString();
   writeStore(users);

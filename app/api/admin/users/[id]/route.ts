@@ -29,13 +29,14 @@ export async function PUT(
     return NextResponse.json({ error: "Cannot modify the virtual admin" }, { status: 400 });
   }
 
-  const { username, password, clubSlugs } = await req.json();
+  const { username, password, clubSlugs, status } = await req.json();
 
   try {
     const user = updateUser(id, {
       username: username || undefined,
       password: password || undefined,
       clubSlugs: clubSlugs !== undefined ? clubSlugs : undefined,
+      status: status || undefined,
     });
     return NextResponse.json(user);
   } catch (e: unknown) {

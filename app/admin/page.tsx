@@ -11,6 +11,7 @@ export const dynamic = "force-dynamic";
 export default async function AdminSettingsPage() {
   await requireSuperAdmin();
   const users = getAllUsers();
+  const pendingUsers = users.filter((u) => (u as typeof u & { status?: string }).status === "pending");
   const allClubs = getAllClubs();
   const extraSlugs = new Set(getExtraClubs().map((c) => c.slug));
   const venues = getVenueMappings();
@@ -31,7 +32,14 @@ export default async function AdminSettingsPage() {
         {/* User Management */}
         <section>
           <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 12 }}>
-            <h2 className="bs-heading" style={{ fontSize: 18 }}>Admin Users</h2>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <h2 className="bs-heading" style={{ fontSize: 18 }}>Admin Users</h2>
+              {pendingUsers.length > 0 && (
+                <span style={{ fontSize: 10, fontFamily: "var(--font-dm-mono, monospace)", padding: "2px 8px", borderRadius: 20, background: "rgba(184,144,66,0.15)", color: "var(--brass)", border: "1px solid rgba(184,144,66,0.3)" }}>
+                  {pendingUsers.length} pending
+                </span>
+              )}
+            </div>
             <Link href="/admin/users/new" style={{
               fontFamily: "var(--font-dm-mono, monospace)", fontSize: 11,
               padding: "5px 12px", borderRadius: 7,
@@ -61,15 +69,20 @@ export default async function AdminSettingsPage() {
                 <Link href="/admin/users/new" style={{ color: "var(--brass)" }}>Create the first one.</Link>
               </div>
             ) : (
-              users.map((user) => (
-                <div key={user.id} style={{ padding: "12px 16px", borderBottom: "1px solid var(--rule)", display: "flex", alignItems: "center", gap: 10 }}>
+              users.map((user) => {
+                const isPending = (user as typeof user & { status?: string }).status === "pending";
+                return (
+                <div key={user.id} style={{ padding: "12px 16px", borderBottom: "1px solid var(--rule)", display: "flex", alignItems: "center", gap: 10, background: isPending ? "rgba(184,144,66,0.03)" : undefined }}>
                   <div className="bs-avatar" style={{ width: 30, height: 30, fontSize: 11, flexShrink: 0 }}>
                     {user.username.slice(0, 2).toUpperCase()}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)" }}>{user.username}</div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)", display: "flex", alignItems: "center", gap: 6 }}>
+                      {user.username}
+                      {isPending && <span style={{ fontSize: 9, fontFamily: "var(--font-dm-mono, monospace)", padding: "1px 6px", borderRadius: 10, background: "rgba(184,144,66,0.15)", color: "var(--brass)" }}>pending</span>}
+                    </div>
                     <div className="bs-mono" style={{ fontSize: 10, color: "var(--ink-3)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {user.clubSlugs.map(s => allClubs.find(c => c.slug === s)?.city ?? s).join(", ") || "No clubs"}
+                      {user.clubSlugs.map(s => allClubs.find(c => c.slug === s)?.city ?? s).join(", ") || (isPending ? "Awaiting city assignment" : "No clubs")}
                     </div>
                   </div>
                   <Link href={`/admin/users/${user.id}`} style={{
@@ -80,7 +93,8 @@ export default async function AdminSettingsPage() {
                     Edit
                   </Link>
                 </div>
-              ))
+                );
+              })
             )}
           </div>
           <Link href="/admin/users" style={{ fontSize: 12, color: "var(--ink-3)", textDecoration: "none" }}>

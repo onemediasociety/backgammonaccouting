@@ -3,6 +3,7 @@ export interface SessionPayload {
   username: string;
   role: "super_admin" | "club_admin";
   clubSlugs: string[];   // empty for super_admin
+  status: "active" | "pending";
   iat: number;
   exp: number;
 }

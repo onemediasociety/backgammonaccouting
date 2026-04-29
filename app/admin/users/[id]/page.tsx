@@ -12,7 +12,7 @@ export default function EditUserPage() {
   const id = params.id as string;
 
   const [user, setUser] = useState<SafeUser | null>(null);
-  const [form, setForm] = useState({ username: "", password: "", clubSlugs: [] as string[] });
+  const [form, setForm] = useState({ username: "", password: "", clubSlugs: [] as string[], status: "active" as "active" | "pending" });
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -22,7 +22,7 @@ export default function EditUserPage() {
       .then((r) => r.json())
       .then((u: SafeUser) => {
         setUser(u);
-        setForm({ username: u.username, password: "", clubSlugs: u.clubSlugs });
+        setForm({ username: u.username, password: "", clubSlugs: u.clubSlugs, status: (u as SafeUser & { status?: string }).status as "active" | "pending" ?? "active" });
       })
       .catch(() => setError("Failed to load user."))
       .finally(() => setLoading(false));
@@ -40,13 +40,12 @@ export default function EditUserPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
-    if (form.clubSlugs.length === 0) { setError("Assign at least one club."); return; }
     setSaving(true);
     try {
       const res = await fetch(`/api/admin/users/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: form.username, password: form.password || undefined, clubSlugs: form.clubSlugs }),
+        body: JSON.stringify({ username: form.username, password: form.password || undefined, clubSlugs: form.clubSlugs, status: form.status }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? "Failed to update user."); return; }
@@ -83,10 +82,46 @@ export default function EditUserPage() {
         <Link href="/admin/users" style={{ color: "inherit", textDecoration: "none" }}>Users</Link>
         {" / "}Edit
       </p>
-      <h1 className="bs-heading" style={{ fontSize: 24, marginBottom: 24 }}>Edit {user.username}</h1>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
+        <h1 className="bs-heading" style={{ fontSize: 24 }}>Edit {user.username}</h1>
+        {form.status === "pending" && (
+          <span style={{ fontSize: 10, fontFamily: "var(--font-dm-mono, monospace)", padding: "3px 10px", borderRadius: 20, background: "rgba(184,144,66,0.12)", color: "var(--brass)", border: "1px solid rgba(184,144,66,0.3)" }}>
+            PENDING
+          </span>
+        )}
+      </div>
+
+      {form.status === "pending" && (
+        <div style={{ background: "rgba(184,144,66,0.07)", border: "1px solid rgba(184,144,66,0.2)", borderRadius: 10, padding: "14px 18px", marginBottom: 20, fontSize: 13, color: "var(--ink-2)" }}>
+          This account is waiting for approval. Assign cities below and set status to <strong>Active</strong> to grant access.
+        </div>
+      )}
 
       <form onSubmit={handleSubmit}>
         <div className="bs-card" style={{ padding: "20px", marginBottom: 16 }}>
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ display: "block", fontSize: 10, fontFamily: "var(--font-dm-mono, monospace)", color: "var(--ink-3)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 6 }}>
+              Account Status
+            </label>
+            <div style={{ display: "flex", gap: 8 }}>
+              {(["active", "pending"] as const).map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setForm((p) => ({ ...p, status: s }))}
+                  style={{
+                    padding: "6px 16px", borderRadius: 7, fontSize: 11,
+                    fontFamily: "var(--font-dm-mono, monospace)", cursor: "pointer",
+                    border: form.status === s ? "none" : "1px solid var(--rule)",
+                    background: form.status === s ? (s === "active" ? "var(--bs-green, #1f4d3a)" : "var(--burgundy)") : "var(--paper)",
+                    color: form.status === s ? "#fff" : "var(--ink-3)",
+                  }}
+                >
+                  {s.charAt(0).toUpperCase() + s.slice(1)}
+                </button>
+              ))}
+            </div>
+          </div>
           <Field label="Username">
             <input
               type="text" required value={form.username}

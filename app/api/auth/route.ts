@@ -7,6 +7,8 @@ export async function POST(req: NextRequest) {
 
   let token: string;
 
+  let status: "active" | "pending" = "active";
+
   // 1. Virtual super admin — password matches SITE_PASSWORD
   const sitePassword = process.env.SITE_PASSWORD;
   if (sitePassword && password === sitePassword) {
@@ -15,6 +17,7 @@ export async function POST(req: NextRequest) {
       username: username || "admin",
       role: "super_admin",
       clubSlugs: [],
+      status: "active",
     });
   } else {
     // 2. Stored club admin
@@ -22,15 +25,17 @@ export async function POST(req: NextRequest) {
     if (!user) {
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
     }
+    status = user.status ?? "active";
     token = await createSession({
       sub: user.id,
       username: user.username,
       role: user.role,
       clubSlugs: user.clubSlugs,
+      status,
     });
   }
 
-  const res = NextResponse.json({ ok: true });
+  const res = NextResponse.json({ ok: true, status });
   res.cookies.set("bs_session", token, {
     httpOnly: true,
     sameSite: "lax",

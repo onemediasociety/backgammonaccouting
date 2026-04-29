@@ -4,6 +4,7 @@
     "username": "admin-nyc",
     "passwordHash": "8eb61c85d696615d70cace2d21dfeabf2a3373b408d62f3201cb8182dd3e07f7",
     "role": "club_admin",
+    "status": "active",
     "clubSlugs": ["nyc"],
     "createdAt": "2026-04-29T20:27:42.872Z",
     "updatedAt": "2026-04-29T20:27:42.872Z"
@@ -13,6 +14,7 @@
     "username": "admin-dc",
     "passwordHash": "8eb61c85d696615d70cace2d21dfeabf2a3373b408d62f3201cb8182dd3e07f7",
     "role": "club_admin",
+    "status": "active",
     "clubSlugs": ["dc"],
     "createdAt": "2026-04-29T20:27:42.872Z",
     "updatedAt": "2026-04-29T20:27:42.872Z"
@@ -22,6 +24,7 @@
     "username": "admin-miami",
     "passwordHash": "8eb61c85d696615d70cace2d21dfeabf2a3373b408d62f3201cb8182dd3e07f7",
     "role": "club_admin",
+    "status": "active",
     "clubSlugs": ["miami"],
     "createdAt": "2026-04-29T20:27:42.872Z",
     "updatedAt": "2026-04-29T20:27:42.872Z"
@@ -31,6 +34,7 @@
     "username": "admin-geneva",
     "passwordHash": "8eb61c85d696615d70cace2d21dfeabf2a3373b408d62f3201cb8182dd3e07f7",
     "role": "club_admin",
+    "status": "active",
     "clubSlugs": ["geneva"],
     "createdAt": "2026-04-29T20:27:42.872Z",
     "updatedAt": "2026-04-29T20:27:42.872Z"
@@ -40,6 +44,7 @@
     "username": "admin-montreal",
     "passwordHash": "8eb61c85d696615d70cace2d21dfeabf2a3373b408d62f3201cb8182dd3e07f7",
     "role": "club_admin",
+    "status": "active",
     "clubSlugs": ["montreal"],
     "createdAt": "2026-04-29T20:27:42.872Z",
     "updatedAt": "2026-04-29T20:27:42.872Z"
@@ -49,6 +54,7 @@
     "username": "admin-paris",
     "passwordHash": "8eb61c85d696615d70cace2d21dfeabf2a3373b408d62f3201cb8182dd3e07f7",
     "role": "club_admin",
+    "status": "active",
     "clubSlugs": ["paris"],
     "createdAt": "2026-04-29T20:27:42.872Z",
     "updatedAt": "2026-04-29T20:27:42.872Z"
@@ -58,6 +64,7 @@
     "username": "admin-special",
     "passwordHash": "8eb61c85d696615d70cace2d21dfeabf2a3373b408d62f3201cb8182dd3e07f7",
     "role": "club_admin",
+    "status": "active",
     "clubSlugs": ["special"],
     "createdAt": "2026-04-29T20:27:42.872Z",
     "updatedAt": "2026-04-29T20:27:42.872Z"
@@ -67,6 +74,7 @@
     "username": "admin-lisbon",
     "passwordHash": "8eb61c85d696615d70cace2d21dfeabf2a3373b408d62f3201cb8182dd3e07f7",
     "role": "club_admin",
+    "status": "active",
     "clubSlugs": ["lisbon"],
     "createdAt": "2026-04-29T20:27:42.872Z",
     "updatedAt": "2026-04-29T20:27:42.872Z"
@@ -76,6 +84,7 @@
     "username": "admin-hollywood",
     "passwordHash": "8eb61c85d696615d70cace2d21dfeabf2a3373b408d62f3201cb8182dd3e07f7",
     "role": "club_admin",
+    "status": "active",
     "clubSlugs": ["hollywood"],
     "createdAt": "2026-04-29T20:27:42.872Z",
     "updatedAt": "2026-04-29T20:27:42.872Z"
