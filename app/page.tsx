@@ -7,6 +7,7 @@ import { getAllClubs } from "@/lib/clubs-server";
 import Link from "next/link";
 import DateFilter from "@/components/DateFilter";
 import RevenueChart from "@/components/RevenueChart";
+import ExportButtons from "@/components/ExportButtons";
 import { parseDateRange } from "@/lib/date-range";
 import { buildMonthlyRevenue } from "@/lib/monthly-revenue";
 import type { ClubSummary } from "@/lib/stripe-client";
@@ -159,16 +160,19 @@ export default async function DashboardPage({
             All clubs · {periodLabel}
           </p>
         </div>
-        {balance && (
-          <div style={{ display: "flex", gap: 20, alignItems: "center" }}>
-            {balance.available.map((b) => (
-              <div key={b.currency} style={{ textAlign: "right" }}>
-                <p className="bs-label" style={{ marginBottom: 2 }}>Balance · {b.currency.toUpperCase()}</p>
-                <p className="bs-amount" style={{ fontSize: 15, fontWeight: 600 }}>{formatAmount(b.amount, b.currency)}</p>
-              </div>
-            ))}
-          </div>
-        )}
+        <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+          <ExportButtons from={range.from} to={range.to} period={range.period} mode="overview" />
+          {balance && (
+            <div style={{ display: "flex", gap: 20, alignItems: "center" }}>
+              {balance.available.map((b) => (
+                <div key={b.currency} style={{ textAlign: "right" }}>
+                  <p className="bs-label" style={{ marginBottom: 2 }}>Balance · {b.currency.toUpperCase()}</p>
+                  <p className="bs-amount" style={{ fontSize: 15, fontWeight: 600 }}>{formatAmount(b.amount, b.currency)}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Period filter */}

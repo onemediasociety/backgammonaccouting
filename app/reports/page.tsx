@@ -5,6 +5,7 @@ import { buildClubSummaries } from "@/lib/stripe-client";
 import { getCashTotalsPerClub } from "@/lib/cash-store";
 import { getExpenseTotalsPerClub } from "@/lib/expenses-store";
 import DateFilter from "@/components/DateFilter";
+import ExportButtons from "@/components/ExportButtons";
 import { parseDateRange } from "@/lib/date-range";
 
 export const dynamic = "force-dynamic";
@@ -67,9 +68,12 @@ export default async function ReportsPage({
         <span className="text-gray-900 font-medium">P&amp;L Report</span>
       </div>
 
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Profit & Loss Report</h1>
-        <p className="text-gray-500 mt-1">Revenue vs. expenses per club — {periodLabel}</p>
+      <div className="mb-6" style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Profit & Loss Report</h1>
+          <p className="text-gray-500 mt-1">Revenue vs. expenses per club — {periodLabel}</p>
+        </div>
+        <ExportButtons from={range.from} to={range.to} period={range.period} mode="pnl" />
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 mb-6">
