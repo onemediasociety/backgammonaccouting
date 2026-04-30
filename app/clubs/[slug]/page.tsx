@@ -25,6 +25,156 @@ function toTs(dateStr: string | null, endOfDay = false): number | undefined {
   return Math.floor(d.getTime() / 1000);
 }
 
+// ── Skeleton shown while Stripe data loads ────────────────────────────────────
+function StripeSkeleton() {
+  return (
+    <>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 12 }}>
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="bs-skeleton" style={{ height: 76, borderRadius: 12 }} />
+        ))}
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12, marginBottom: 24 }}>
+        {Array.from({ length: 2 }).map((_, i) => (
+          <div key={i} className="bs-skeleton" style={{ height: 76, borderRadius: 12 }} />
+        ))}
+      </div>
+      <div className="bs-skeleton" style={{ height: 80, borderRadius: 12, marginBottom: 28 }} />
+      <div className="bs-skeleton" style={{ height: 260, borderRadius: 12, marginBottom: 36 }} />
+      <div className="bs-skeleton" style={{ height: 100, borderRadius: 12, marginBottom: 36 }} />
+    </>
+  );
+}
+
+// ── Stripe-dependent content (streams in) ────────────────────────────────────
+async function StripeData({
+  slug, currency, fromTs, toTs_, range,
+}: {
+  slug: string;
+  currency: string;
+  fromTs: number | undefined;
+  toTs_: number | undefined;
+  range: { from: string | null; to: string | null };
+}) {
+  const session = await getSession();
+  const split = getSplitForClub(slug);
+  const cashEntries = getCashEntriesForClub(slug, range.from ?? undefined, range.to ?? undefined);
+  const cashTotal = cashEntries.reduce((s, e) => s + e.totalAmount, 0);
+  const expenses = getExpensesForClub(slug, range.from ?? undefined, range.to ?? undefined);
+  const expenseTotal = expenses.reduce((s, e) => s + e.amountCents, 0);
+
+  let stripePayments = null;
+  let stripeError: string | null = null;
+  let stripeFees = 0;
+  let feesAvailable = false;
+
+  try {
+    [stripePayments] = await Promise.all([
+      fetchPaymentsForClub(slug, fromTs, toTs_),
+    ]);
+  } catch (e: unknown) {
+    stripeError = e instanceof Error ? e.message : "Stripe error";
+  }
+
+  try {
+    const feesByClub = await fetchFeesByClub(fromTs, toTs_);
+    stripeFees = feesByClub[slug] ?? 0;
+    feesAvailable = true;
+  } catch { /* fees unavailable */ }
+
+  const stripeTotal = stripePayments?.filter((p) => p.status === "succeeded").reduce((s, p) => s + p.amount, 0) ?? 0;
+  const stripeCount = stripePayments?.filter((p) => p.status === "succeeded").length ?? 0;
+  const grossProfit = stripeTotal + cashTotal;
+  const netIncome = grossProfit - stripeFees;
+
+  return (
+    <>
+      {/* KPI strip */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 12 }}>
+        <Kpi label="Stripe Revenue" value={formatAmount(stripeTotal, currency)} sub={`${stripeCount} txns`} />
+        <Kpi label="Cash Buy-ins" value={formatAmount(cashTotal, currency)} />
+        <Kpi label="Gross Profit" value={formatAmount(grossProfit, currency)} />
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12, marginBottom: 24 }}>
+        <Kpi label="Stripe Fees" value={feesAvailable ? `(${formatAmount(stripeFees, currency)})` : "—"} color="burgundy" sub={feesAvailable ? "deducted from net" : "unavailable"} />
+        <Kpi label="Tracked Expenses" value={expenseTotal > 0 ? formatAmount(expenseTotal, currency) : "—"} color="burgundy" sub="not included in net" />
+      </div>
+
+      {/* Net profit banner */}
+      <div className="bs-card" style={{
+        padding: "18px 24px", marginBottom: 28,
+        background: netIncome >= 0 ? "var(--bs-green, #1f4d3a)" : "var(--burgundy, #8b1a1a)",
+        border: "none",
+      }}>
+        <p className="bs-label" style={{ color: "rgba(255,255,255,0.6)", marginBottom: 6 }}>
+          Net Profit {feesAvailable ? "(Gross − Stripe Fees)" : "(Gross, fees unavailable)"}
+        </p>
+        <p className="bs-mono" style={{ fontSize: 28, fontWeight: 700, color: "#fff" }}>
+          {formatAmount(netIncome, currency)}
+        </p>
+      </div>
+
+      {/* Stripe Payments */}
+      <section style={{ marginBottom: 36 }}>
+        <h2 className="bs-heading" style={{ fontSize: 19, marginBottom: 14 }}>Stripe Payments</h2>
+        {stripeError ? (
+          <div style={{
+            background: "rgba(139,26,26,0.07)", border: "1px solid rgba(139,26,26,0.2)",
+            borderRadius: 10, padding: "14px 18px", fontSize: 13, color: "var(--burgundy)",
+          }}>
+            {stripeError}
+          </div>
+        ) : (
+          <TransactionTable payments={stripePayments ?? []} currency={currency} />
+        )}
+      </section>
+
+      {/* Revenue Split */}
+      {split && split.recipients.length > 0 && (
+        <section style={{ marginBottom: 36 }}>
+          <h2 className="bs-heading" style={{ fontSize: 19, marginBottom: 14 }}>Revenue Split</h2>
+          <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(split.recipients.length, 3)}, 1fr)`, gap: 14 }}>
+            {split.recipients.map((r, i) => {
+              const isGlobal = r.name === "Global";
+              const isAdmin = !isGlobal;
+              const amount = Math.round(netIncome * r.pct / 100);
+              return (
+                <div key={i} className="bs-card" style={{
+                  padding: "18px 22px",
+                  background: isAdmin && r.pct > 0 ? "var(--bs-green, #1f4d3a)" : undefined,
+                  border: isAdmin && r.pct > 0 ? "none" : undefined,
+                }}>
+                  <p className="bs-label" style={{
+                    marginBottom: 6,
+                    color: isGlobal ? "var(--brass)" : isAdmin && r.pct > 0 ? "rgba(255,255,255,0.55)" : "var(--ink-3)",
+                  }}>
+                    {r.name} · {r.pct}%
+                  </p>
+                  <p className="bs-mono" style={{
+                    fontSize: 22, fontWeight: 700,
+                    color: isAdmin && r.pct > 0 ? "#fff" : "var(--ink)",
+                  }}>
+                    {formatAmount(amount, currency)}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+          <p style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 10 }}>
+            Based on net profit of {formatAmount(netIncome, currency)} (Stripe + Cash − Stripe Fees).
+            {session?.role === "super_admin" && (
+              <Link href="/admin/splits" style={{ color: "var(--brass)", marginLeft: 8, textDecoration: "none" }}>
+                Edit splits →
+              </Link>
+            )}
+          </p>
+        </section>
+      )}
+    </>
+  );
+}
+
+// ── Page ─────────────────────────────────────────────────────────────────────
 export default async function ClubPage({
   params,
   searchParams,
@@ -38,11 +188,6 @@ export default async function ClubPage({
   const club = getClub(slug);
   if (!club) notFound();
 
-  const [session, split] = await Promise.all([
-    getSession(),
-    Promise.resolve(getSplitForClub(slug)),
-  ]);
-
   const range = parseDateRange({
     get: (k: string) => (sp as Record<string, string>)[k] ?? null,
   });
@@ -50,32 +195,10 @@ export default async function ClubPage({
   const fromTs = toTs(range.from);
   const toTs_ = toTs(range.to, true);
 
-  let stripePayments = null;
-  let stripeError: string | null = null;
-  let stripeFees = 0;
-  let feesAvailable = false;
-  try {
-    [stripePayments] = await Promise.all([
-      fetchPaymentsForClub(club.slug, fromTs, toTs_),
-    ]);
-  } catch (e: unknown) {
-    stripeError = e instanceof Error ? e.message : "Stripe error";
-  }
-  try {
-    const feesByClub = await fetchFeesByClub(fromTs, toTs_);
-    stripeFees = feesByClub[club.slug] ?? 0;
-    feesAvailable = true;
-  } catch { /* fees unavailable */ }
-
+  // These are instant file reads — no Stripe needed
   const cashEntries = getCashEntriesForClub(club.slug, range.from ?? undefined, range.to ?? undefined);
   const expenses = getExpensesForClub(club.slug, range.from ?? undefined, range.to ?? undefined);
-
-  const stripeTotal = stripePayments?.filter((p) => p.status === "succeeded").reduce((s, p) => s + p.amount, 0) ?? 0;
-  const cashTotal = cashEntries.reduce((s, e) => s + e.totalAmount, 0);
   const expenseTotal = expenses.reduce((s, e) => s + e.amountCents, 0);
-  const stripeCount = stripePayments?.filter((p) => p.status === "succeeded").length ?? 0;
-  const grossProfit = stripeTotal + cashTotal;
-  const netIncome = grossProfit - stripeFees;
 
   const periodLabel = range.from && range.to
     ? `${range.from} – ${range.to}`
@@ -85,7 +208,7 @@ export default async function ClubPage({
     <div>
       {/* Breadcrumb */}
       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 20, fontSize: 12, color: "var(--ink-3)" }}>
-        <Link href="/" style={{ color: "var(--ink-3)", textDecoration: "none" }} className="hover-underline">Dashboard</Link>
+        <Link href="/" style={{ color: "var(--ink-3)", textDecoration: "none" }}>Dashboard</Link>
         <span style={{ opacity: 0.4 }}>/</span>
         <span style={{ color: "var(--ink-2)", fontWeight: 500 }}>{club.name}</span>
       </div>
@@ -124,46 +247,18 @@ export default async function ClubPage({
         </Suspense>
       </div>
 
-      {/* KPI strip */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 12 }}>
-        <Kpi label="Stripe Revenue" value={formatAmount(stripeTotal, club.currency)} sub={`${stripeCount} txns`} />
-        <Kpi label="Cash Buy-ins" value={formatAmount(cashTotal, club.currency)} />
-        <Kpi label="Gross Profit" value={formatAmount(grossProfit, club.currency)} />
-      </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12, marginBottom: 24 }}>
-        <Kpi label="Stripe Fees" value={feesAvailable ? `(${formatAmount(stripeFees, club.currency)})` : "—"} color="burgundy" sub={feesAvailable ? "deducted from net" : "unavailable"} />
-        <Kpi label="Tracked Expenses" value={formatAmount(expenseTotal, club.currency)} color="burgundy" sub="not included in net" />
-      </div>
-      {/* Net profit — full width */}
-      <div className="bs-card" style={{
-        padding: "18px 24px", marginBottom: 28,
-        background: netIncome >= 0 ? "var(--bs-green, #1f4d3a)" : "var(--burgundy, #8b1a1a)",
-        border: "none",
-      }}>
-        <p className="bs-label" style={{ color: "rgba(255,255,255,0.6)", marginBottom: 6 }}>
-          Net Profit {feesAvailable ? "(Gross − Stripe Fees)" : "(Gross, fees unavailable)"}
-        </p>
-        <p className="bs-mono" style={{ fontSize: 28, fontWeight: 700, color: "#fff" }}>
-          {formatAmount(netIncome, club.currency)}
-        </p>
-      </div>
+      {/* Stripe-dependent sections — stream in */}
+      <Suspense fallback={<StripeSkeleton />}>
+        <StripeData
+          slug={club.slug}
+          currency={club.currency}
+          fromTs={fromTs}
+          toTs_={toTs_}
+          range={range}
+        />
+      </Suspense>
 
-      {/* Stripe */}
-      <section style={{ marginBottom: 36 }}>
-        <h2 className="bs-heading" style={{ fontSize: 19, marginBottom: 14 }}>Stripe Payments</h2>
-        {stripeError ? (
-          <div style={{
-            background: "rgba(139,26,26,0.07)", border: "1px solid rgba(139,26,26,0.2)",
-            borderRadius: 10, padding: "14px 18px", fontSize: 13, color: "var(--burgundy)",
-          }}>
-            {stripeError} — ensure <code style={{ background: "rgba(0,0,0,0.06)", padding: "1px 5px", borderRadius: 3 }}>STRIPE_SECRET_KEY</code> is set.
-          </div>
-        ) : (
-          <TransactionTable payments={stripePayments ?? []} currency={club.currency} />
-        )}
-      </section>
-
-      {/* Cash */}
+      {/* Cash — instant, no Stripe needed */}
       <section style={{ marginBottom: 36 }}>
         <h2 className="bs-heading" style={{ fontSize: 19, marginBottom: 14 }}>Cash Buy-ins</h2>
         <AddCashForm clubSlug={club.slug} currency={club.currency} />
@@ -172,82 +267,35 @@ export default async function ClubPage({
         </div>
       </section>
 
-      {/* Expenses */}
+      {/* Expenses — instant, no Stripe needed */}
       <section style={{ marginBottom: 36 }}>
-        <h2 className="bs-heading" style={{ fontSize: 19, marginBottom: 14 }}>Expenses</h2>
+        <h2 className="bs-heading" style={{ fontSize: 19, marginBottom: 14 }}>
+          Expenses
+          {expenseTotal > 0 && (
+            <span style={{ fontSize: 13, fontWeight: 400, color: "var(--ink-3)", marginLeft: 10 }}>
+              {formatAmount(expenseTotal, club.currency)} tracked
+            </span>
+          )}
+        </h2>
         <AddExpenseForm clubSlug={club.slug} currency={club.currency} />
         <div style={{ marginTop: 16 }}>
           <ExpenseTable entries={expenses} currency={club.currency} />
         </div>
       </section>
-
-      {/* Revenue Split */}
-      {split && split.recipients.length > 0 && (
-        <section style={{ marginBottom: 36 }}>
-          <h2 className="bs-heading" style={{ fontSize: 19, marginBottom: 14 }}>Revenue Split</h2>
-          <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(split.recipients.length, 3)}, 1fr)`, gap: 14 }}>
-            {split.recipients.map((r, i) => {
-              const isGlobal = r.name === "Global";
-              const isAdmin = !isGlobal;
-              const amount = Math.round(netIncome * r.pct / 100);
-              return (
-                <div key={i} className="bs-card" style={{
-                  padding: "18px 22px",
-                  background: isAdmin && r.pct > 0 ? "var(--bs-green, #1f4d3a)" : undefined,
-                  border: isAdmin && r.pct > 0 ? "none" : undefined,
-                }}>
-                  <p className="bs-label" style={{
-                    marginBottom: 6,
-                    color: isGlobal ? "var(--brass)" : isAdmin && r.pct > 0 ? "rgba(255,255,255,0.55)" : "var(--ink-3)",
-                  }}>
-                    {r.name} · {r.pct}%
-                  </p>
-                  <p className="bs-mono" style={{
-                    fontSize: 22, fontWeight: 700,
-                    color: isAdmin && r.pct > 0 ? "#fff" : "var(--ink)",
-                  }}>
-                    {formatAmount(amount, club.currency)}
-                  </p>
-                </div>
-              );
-            })}
-          </div>
-          <p style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 10 }}>
-            Based on net profit of {formatAmount(netIncome, club.currency)} (Stripe + Cash − Stripe Fees).
-            {session?.role === "super_admin" && (
-              <Link href="/admin/splits" style={{ color: "var(--brass)", marginLeft: 8, textDecoration: "none" }}>
-                Edit splits →
-              </Link>
-            )}
-          </p>
-        </section>
-      )}
     </div>
   );
 }
 
-function Kpi({
-  label,
-  value,
-  sub,
-  color = "default",
-}: {
-  label: string;
-  value: string;
-  sub?: string;
-  color?: "default" | "burgundy" | "green";
+function Kpi({ label, value, sub, color = "default" }: {
+  label: string; value: string; sub?: string; color?: "default" | "burgundy" | "green";
 }) {
   return (
     <div className="bs-card" style={{ padding: "16px 20px" }}>
       <p className="bs-label" style={{ marginBottom: 6 }}>{label}</p>
-      <p
-        className="bs-mono"
-        style={{
-          fontSize: 18,
-          fontWeight: 600,
-          color: color === "burgundy" ? "var(--burgundy)" : color === "green" ? "var(--bs-green, #1f4d3a)" : "var(--ink)",
-        }}
-      >
+      <p className="bs-mono" style={{
+        fontSize: 18, fontWeight: 600,
+        color: color === "burgundy" ? "var(--burgundy)" : color === "green" ? "var(--bs-green, #1f4d3a)" : "var(--ink)",
+      }}>
         {value}
       </p>
       {sub && <p className="bs-mono" style={{ fontSize: 10, color: "var(--ink-3)", marginTop: 3 }}>{sub}</p>}
