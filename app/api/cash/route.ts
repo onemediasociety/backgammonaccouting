@@ -8,7 +8,9 @@ import {
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
   const club = searchParams.get("club");
-  const entries = club ? getCashEntriesForClub(club) : getAllCashEntries();
+  const from = searchParams.get("from") ?? undefined;
+  const to = searchParams.get("to") ?? undefined;
+  const entries = club ? getCashEntriesForClub(club, from, to) : getAllCashEntries(from, to);
   return NextResponse.json(entries);
 }
 

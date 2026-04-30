@@ -16,16 +16,14 @@ function fmt(cents: number, currency: string) {
   });
 }
 
-function periodToLabel(period: string) {
-  const [y, m] = period.split("-");
-  return `${MONTHS[parseInt(m) - 1]} ${y}`;
-}
-
-interface ClubNet {
+interface ClubBreakdown {
   slug: string;
   city: string;
   flag: string;
   currency: string;
+  stripeCents: number;
+  cashCents: number;
+  feeCents: number;
   netCents: number;
 }
 
@@ -33,7 +31,7 @@ export default function PayoutsPage() {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
-  const [clubNets, setClubNets] = useState<ClubNet[]>([]);
+  const [clubs, setClubs] = useState<ClubBreakdown[]>([]);
   const [splits, setSplits] = useState<ClubSplit[]>([]);
   const [history, setHistory] = useState<ProcessedPayout[]>([]);
   const [loadingCalc, setLoadingCalc] = useState(false);
@@ -49,46 +47,50 @@ export default function PayoutsPage() {
   const calculate = useCallback(async () => {
     setLoadingCalc(true);
     setError("");
+    setSuccess("");
     try {
       const from = `${year}-${String(month).padStart(2, "0")}-01`;
       const lastDay = new Date(year, month, 0).getDate();
       const to = `${year}-${String(month).padStart(2, "0")}-${lastDay}`;
 
-      const [paymentsRes, cashRes, feesRes] = await Promise.all([
+      const [paymentsRes, cashRes, feesRes, clubsRes] = await Promise.all([
         fetch(`/api/stripe?from=${from}&to=${to}`),
         fetch(`/api/cash?from=${from}&to=${to}`),
         fetch(`/api/stripe/fees?from=${from}&to=${to}`),
+        fetch("/api/admin/clubs"),
       ]);
 
       const payments: { clubSlug: string; amount: number; currency: string; status: string }[] =
         paymentsRes.ok ? await paymentsRes.json() : [];
-      const cashEntries: { clubSlug: string; amountCents: number; currency: string }[] =
+      const cashEntries: { clubSlug: string; totalAmount: number; currency: string }[] =
         cashRes.ok ? await cashRes.json() : [];
       const fees: Record<string, number> = feesRes.ok ? await feesRes.json() : {};
-
-      // aggregate per club
-      const stripeByClub: Record<string, { cents: number; currency: string }> = {};
-      for (const p of payments) {
-        if (p.status !== "succeeded") continue;
-        if (!stripeByClub[p.clubSlug]) stripeByClub[p.clubSlug] = { cents: 0, currency: p.currency };
-        stripeByClub[p.clubSlug].cents += p.amount;
-      }
-      const cashByClub: Record<string, number> = {};
-      for (const c of cashEntries) cashByClub[c.clubSlug] = (cashByClub[c.clubSlug] ?? 0) + c.amountCents;
-
-      // fetch clubs list
-      const clubsRes = await fetch("/api/admin/clubs");
-      const clubs: { slug: string; city: string; flag: string; currency: string }[] =
+      const clubList: { slug: string; city: string; flag: string; currency: string }[] =
         clubsRes.ok ? await clubsRes.json() : [];
 
-      const nets: ClubNet[] = clubs.map((c) => {
-        const stripe = stripeByClub[c.slug]?.cents ?? 0;
-        const cash = cashByClub[c.slug] ?? 0;
-        const fee = fees[c.slug] ?? 0;
-        return { slug: c.slug, city: c.city, flag: c.flag, currency: c.currency, netCents: stripe + cash - fee };
-      }).filter((c) => c.netCents !== 0);
+      const stripeByClub: Record<string, number> = {};
+      for (const p of payments) {
+        if (p.status !== "succeeded") continue;
+        stripeByClub[p.clubSlug] = (stripeByClub[p.clubSlug] ?? 0) + p.amount;
+      }
 
-      setClubNets(nets);
+      const cashByClub: Record<string, number> = {};
+      for (const c of cashEntries) {
+        cashByClub[c.clubSlug] = (cashByClub[c.clubSlug] ?? 0) + Math.round(c.totalAmount * 100);
+      }
+
+      const breakdowns: ClubBreakdown[] = clubList.map((c) => {
+        const stripeCents = stripeByClub[c.slug] ?? 0;
+        const cashCents = cashByClub[c.slug] ?? 0;
+        const feeCents = fees[c.slug] ?? 0;
+        return {
+          slug: c.slug, city: c.city, flag: c.flag, currency: c.currency,
+          stripeCents, cashCents, feeCents,
+          netCents: stripeCents + cashCents - feeCents,
+        };
+      }).filter((c) => c.stripeCents > 0 || c.cashCents > 0);
+
+      setClubs(breakdowns);
     } catch {
       setError("Failed to load data. Please try again.");
     } finally {
@@ -96,13 +98,13 @@ export default function PayoutsPage() {
     }
   }, [year, month]);
 
-  // Build payout entries from clubNets × splits
-  const entries: PayoutEntry[] = [];
-  for (const club of clubNets) {
+  // Build all payout entries from clubs × splits
+  const allEntries: PayoutEntry[] = [];
+  for (const club of clubs) {
     const split = splits.find((s) => s.clubSlug === club.slug);
     if (!split) continue;
     for (const r of split.recipients) {
-      entries.push({
+      allEntries.push({
         clubSlug: club.slug,
         clubCity: club.city,
         currency: club.currency,
@@ -115,16 +117,14 @@ export default function PayoutsPage() {
     }
   }
 
-  // Group entries by recipient for the summary view
-  const byRecipient: Record<string, { entries: PayoutEntry[]; totalUSD: number }> = {};
-  for (const e of entries) {
-    if (!byRecipient[e.recipientName]) byRecipient[e.recipientName] = { entries: [], totalUSD: 0 };
-    byRecipient[e.recipientName].entries.push(e);
-    if (e.currency === "usd") byRecipient[e.recipientName].totalUSD += e.amountCents;
+  // Recipient summary totals
+  const byRecipient: Record<string, number> = {};
+  for (const e of allEntries) {
+    if (e.currency === "usd") byRecipient[e.recipientName] = (byRecipient[e.recipientName] ?? 0) + e.amountCents;
   }
 
   async function processPayout() {
-    if (entries.length === 0) return;
+    if (allEntries.length === 0) return;
     setProcessing(true);
     setError("");
     setSuccess("");
@@ -133,13 +133,13 @@ export default function PayoutsPage() {
     const res = await fetch("/api/payouts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ period, periodLabel, entries }),
+      body: JSON.stringify({ period, periodLabel, entries: allEntries }),
     });
     if (res.ok) {
       const payout = await res.json();
       setHistory((prev) => [payout, ...prev]);
       setSuccess(`Payout for ${periodLabel} recorded. Download statements below.`);
-      setClubNets([]);
+      setClubs([]);
     } else {
       const data = await res.json().catch(() => ({}));
       setError(data.error ?? "Failed to record payout.");
@@ -164,6 +164,8 @@ export default function PayoutsPage() {
       <section style={{ marginBottom: 32 }}>
         <h2 className="bs-heading" style={{ fontSize: 18, marginBottom: 14 }}>Calculate Monthly Payout</h2>
         <div className="bs-card" style={{ padding: "20px 24px" }}>
+
+          {/* Month / Year picker */}
           <div style={{ display: "flex", alignItems: "flex-end", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>
             <div>
               <label style={{ display: "block", fontSize: 10, fontFamily: "var(--font-dm-mono, monospace)", color: "var(--ink-3)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 5 }}>Month</label>
@@ -202,52 +204,77 @@ export default function PayoutsPage() {
             </div>
           )}
 
-          {clubNets.length > 0 && (
+          {clubs.length > 0 && (
             <>
-              {/* Per-recipient summary */}
-              <div style={{ marginBottom: 20 }}>
+              {/* Recipient summary */}
+              <div style={{ marginBottom: 24 }}>
                 <p className="bs-mono" style={{ fontSize: 10, color: "var(--ink-3)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>
-                  Recipient Summary · {MONTHS[month - 1]} {year}
+                  Total Payouts · {MONTHS[month - 1]} {year}
                 </p>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 10 }}>
-                  {Object.entries(byRecipient).map(([name, { totalUSD }]) => (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 10 }}>
+                  {Object.entries(byRecipient).map(([name, cents]) => (
                     <div key={name} className="bs-card" style={{ padding: "14px 16px" }}>
-                      <p style={{ fontSize: 11, color: "var(--ink-3)", fontFamily: "var(--font-dm-mono, monospace)", marginBottom: 4 }}>{name}</p>
-                      <p className="bs-mono" style={{ fontSize: 18, fontWeight: 700, color: "var(--ink)" }}>{fmt(totalUSD, "usd")}</p>
-                      <p style={{ fontSize: 10, color: "var(--ink-3)", marginTop: 2 }}>{byRecipient[name].entries.length} club{byRecipient[name].entries.length > 1 ? "s" : ""}</p>
+                      <p style={{ fontSize: 10, color: "var(--ink-3)", fontFamily: "var(--font-dm-mono, monospace)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 4 }}>{name}</p>
+                      <p className="bs-mono" style={{ fontSize: 20, fontWeight: 700, color: "var(--ink)" }}>{fmt(cents, "usd")}</p>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Detailed breakdown */}
-              <div style={{ marginBottom: 20 }}>
+              {/* Per-club breakdown */}
+              <div style={{ marginBottom: 24 }}>
                 <p className="bs-mono" style={{ fontSize: 10, color: "var(--ink-3)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>
-                  Detailed Breakdown
+                  Breakdown by Club
                 </p>
-                <div className="bs-card" style={{ overflow: "hidden" }}>
-                  <table className="bs-table">
-                    <thead>
-                      <tr>
-                        <th>Club</th>
-                        <th>Recipient</th>
-                        <th style={{ textAlign: "right" }}>Net Revenue</th>
-                        <th style={{ textAlign: "right" }}>Split</th>
-                        <th style={{ textAlign: "right" }}>Payout</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {entries.map((e, i) => (
-                        <tr key={i}>
-                          <td style={{ fontSize: 13 }}>{e.clubCity}</td>
-                          <td style={{ fontSize: 13 }}>{e.recipientName}</td>
-                          <td className="bs-amount" style={{ textAlign: "right", fontSize: 12 }}>{fmt(e.netCents, e.currency)}</td>
-                          <td className="bs-mono" style={{ textAlign: "right", fontSize: 12, color: "var(--ink-3)" }}>{e.pct}%</td>
-                          <td className="bs-amount" style={{ textAlign: "right", fontSize: 13, fontWeight: 700 }}>{fmt(e.amountCents, e.currency)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  {clubs.map((club) => {
+                    const split = splits.find((s) => s.clubSlug === club.slug);
+                    const clubEntries = allEntries.filter((e) => e.clubSlug === club.slug);
+                    return (
+                      <div key={club.slug} className="bs-card" style={{ padding: "18px 20px" }}>
+                        {/* Club header */}
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, flexWrap: "wrap", gap: 8 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                            <span style={{ fontSize: 22 }}>{club.flag}</span>
+                            <div>
+                              <p style={{ fontSize: 14, fontWeight: 600, color: "var(--ink)", marginBottom: 1 }}>{club.city}</p>
+                              <p className="bs-mono" style={{ fontSize: 10, color: "var(--ink-3)" }}>{club.currency.toUpperCase()}</p>
+                            </div>
+                          </div>
+                          <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+                            <Stat label="Stripe" value={fmt(club.stripeCents, club.currency)} />
+                            <Stat label="Cash Buy-ins" value={fmt(club.cashCents, club.currency)} />
+                            {club.feeCents > 0 && <Stat label="Stripe Fees" value={`(${fmt(club.feeCents, club.currency)})`} muted />}
+                            <Stat label="Net" value={fmt(club.netCents, club.currency)} bold />
+                          </div>
+                        </div>
+
+                        {/* Split table */}
+                        {split && clubEntries.length > 0 ? (
+                          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                            <thead>
+                              <tr>
+                                <th style={{ textAlign: "left", padding: "5px 10px", fontFamily: "var(--font-dm-mono, monospace)", fontSize: 10, color: "var(--ink-3)", fontWeight: 400, letterSpacing: "0.06em", textTransform: "uppercase", borderBottom: "1px solid var(--rule)" }}>Recipient</th>
+                                <th style={{ textAlign: "right", padding: "5px 10px", fontFamily: "var(--font-dm-mono, monospace)", fontSize: 10, color: "var(--ink-3)", fontWeight: 400, letterSpacing: "0.06em", textTransform: "uppercase", borderBottom: "1px solid var(--rule)" }}>Split</th>
+                                <th style={{ textAlign: "right", padding: "5px 10px", fontFamily: "var(--font-dm-mono, monospace)", fontSize: 10, color: "var(--ink-3)", fontWeight: 400, letterSpacing: "0.06em", textTransform: "uppercase", borderBottom: "1px solid var(--rule)" }}>Payout</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {clubEntries.map((e, i) => (
+                                <tr key={i}>
+                                  <td style={{ padding: "7px 10px", color: "var(--ink)", borderBottom: "1px solid var(--rule)" }}>{e.recipientName}</td>
+                                  <td className="bs-mono" style={{ padding: "7px 10px", textAlign: "right", color: "var(--ink-3)", borderBottom: "1px solid var(--rule)" }}>{e.pct}%</td>
+                                  <td className="bs-mono" style={{ padding: "7px 10px", textAlign: "right", fontWeight: 700, color: "var(--ink)", borderBottom: "1px solid var(--rule)" }}>{fmt(e.amountCents, e.currency)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        ) : (
+                          <p style={{ fontSize: 11, color: "var(--ink-3)", fontStyle: "italic" }}>No split configured for this club.</p>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -322,6 +349,15 @@ export default function PayoutsPage() {
           </div>
         )}
       </section>
+    </div>
+  );
+}
+
+function Stat({ label, value, bold, muted }: { label: string; value: string; bold?: boolean; muted?: boolean }) {
+  return (
+    <div style={{ textAlign: "right" }}>
+      <p style={{ fontSize: 9, fontFamily: "var(--font-dm-mono, monospace)", color: "var(--ink-3)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 2 }}>{label}</p>
+      <p className="bs-mono" style={{ fontSize: 13, fontWeight: bold ? 700 : 500, color: muted ? "var(--burgundy)" : "var(--ink)" }}>{value}</p>
     </div>
   );
 }
