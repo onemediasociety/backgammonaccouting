@@ -6,6 +6,7 @@
     "role": "club_admin",
     "status": "active",
     "clubSlugs": ["nyc"],
+    "recipientName": "Admin",
     "createdAt": "2026-04-29T20:27:42.872Z",
     "updatedAt": "2026-04-29T20:27:42.872Z"
   },
@@ -16,6 +17,7 @@
     "role": "club_admin",
     "status": "active",
     "clubSlugs": ["dc"],
+    "recipientName": "Admin",
     "createdAt": "2026-04-29T20:27:42.872Z",
     "updatedAt": "2026-04-29T20:27:42.872Z"
   },
@@ -26,6 +28,7 @@
     "role": "club_admin",
     "status": "active",
     "clubSlugs": ["miami"],
+    "recipientName": "Admin",
     "createdAt": "2026-04-29T20:27:42.872Z",
     "updatedAt": "2026-04-29T20:27:42.872Z"
   },
@@ -36,6 +39,7 @@
     "role": "club_admin",
     "status": "active",
     "clubSlugs": ["geneva"],
+    "recipientName": "Admin",
     "createdAt": "2026-04-29T20:27:42.872Z",
     "updatedAt": "2026-04-29T20:27:42.872Z"
   },
@@ -46,6 +50,7 @@
     "role": "club_admin",
     "status": "active",
     "clubSlugs": ["montreal"],
+    "recipientName": "Admin",
     "createdAt": "2026-04-29T20:27:42.872Z",
     "updatedAt": "2026-04-29T20:27:42.872Z"
   },
@@ -66,6 +71,7 @@
     "role": "club_admin",
     "status": "active",
     "clubSlugs": ["special"],
+    "recipientName": "Admin",
     "createdAt": "2026-04-29T20:27:42.872Z",
     "updatedAt": "2026-04-29T20:27:42.872Z"
   },
@@ -76,6 +82,7 @@
     "role": "club_admin",
     "status": "active",
     "clubSlugs": ["lisbon"],
+    "recipientName": "Admin",
     "createdAt": "2026-04-29T20:27:42.872Z",
     "updatedAt": "2026-04-29T20:27:42.872Z"
   },
@@ -86,6 +93,7 @@
     "role": "club_admin",
     "status": "active",
     "clubSlugs": ["hollywood"],
+    "recipientName": "Admin",
     "createdAt": "2026-04-29T20:27:42.872Z",
     "updatedAt": "2026-04-29T20:27:42.872Z"
   }

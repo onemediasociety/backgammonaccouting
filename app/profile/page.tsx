@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import type { BankDetails } from "@/lib/users-store";
 import type { ProcessedPayout } from "@/lib/payout-store";
+import type { ClubSplit, SplitRecipient } from "@/lib/splits-store";
 
 interface UserProfile {
   id: string;
@@ -39,10 +40,14 @@ function fmt(cents: number, currency: string) {
 export default function ProfilePage() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [payouts, setPayouts] = useState<ProcessedPayout[]>([]);
+  const [splits, setSplits] = useState<ClubSplit[]>([]);
+  const [clubs, setClubs] = useState<{ slug: string; city: string; flag: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
+  const [splitSaving, setSplitSaving] = useState<string>("");
+  const [splitSaved, setSplitSaved] = useState<string>("");
 
   const [bank, setBank] = useState<BankDetails>({
     accountHolderName: "",
@@ -56,13 +61,43 @@ export default function ProfilePage() {
     Promise.all([
       fetch("/api/profile").then((r) => r.json()),
       fetch("/api/payouts").then((r) => r.json()),
-    ]).then(([p, h]: [UserProfile, ProcessedPayout[]]) => {
+      fetch("/api/admin/splits").then((r) => r.json()),
+      fetch("/api/admin/clubs").then((r) => r.json()),
+    ]).then(([p, h, s, c]: [UserProfile, ProcessedPayout[], ClubSplit[], { slug: string; city: string; flag: string }[]]) => {
       setProfile(p);
       if (p.bankDetails) setBank(p.bankDetails);
       setPayouts(h);
+      setSplits(s);
+      setClubs(c);
     }).catch(() => setError("Failed to load profile."))
       .finally(() => setLoading(false));
   }, []);
+
+  async function saveSplit(clubSlug: string, recipients: SplitRecipient[]) {
+    setSplitSaving(clubSlug);
+    setSplitSaved("");
+    const res = await fetch("/api/admin/splits", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ clubSlug, recipients }),
+    });
+    if (res.ok) {
+      const updated: ClubSplit = await res.json();
+      setSplits((prev) => prev.map((s) => s.clubSlug === clubSlug ? updated : s));
+      setSplitSaved(clubSlug);
+      setTimeout(() => setSplitSaved(""), 3000);
+    }
+    setSplitSaving("");
+  }
+
+  function updateSplitPct(clubSlug: string, recipientName: string, pct: number) {
+    setSplits((prev) => prev.map((s) =>
+      s.clubSlug !== clubSlug ? s : {
+        ...s,
+        recipients: s.recipients.map((r) => r.name === recipientName ? { ...r, pct } : r),
+      }
+    ));
+  }
 
   async function saveBankDetails(e: React.FormEvent) {
     e.preventDefault();
@@ -152,8 +187,8 @@ export default function ProfilePage() {
         </div>
       )}
 
-      {/* Bank details form */}
-      <section style={{ marginBottom: 28 }}>
+      {/* Bank details form — club admins only (super admin is a virtual account) */}
+      {profile.role !== "super_admin" && <section style={{ marginBottom: 28 }}>
         <h2 className="bs-heading" style={{ fontSize: 17, marginBottom: 14 }}>Bank Details</h2>
         <form onSubmit={saveBankDetails} className="bs-card" style={{ padding: "20px" }}>
           <p style={{ fontSize: 11, color: "var(--ink-3)", marginBottom: 16 }}>
@@ -218,7 +253,64 @@ export default function ProfilePage() {
             {saved && <span style={{ fontSize: 12, color: "var(--bs-green, #1f4d3a)", fontFamily: "var(--font-dm-mono, monospace)" }}>Saved ✓</span>}
           </div>
         </form>
-      </section>
+      </section>}
+
+      {/* Revenue splits — editable by super admin */}
+      {profile.role === "super_admin" && (
+        <section style={{ marginBottom: 28 }}>
+          <h2 className="bs-heading" style={{ fontSize: 17, marginBottom: 6 }}>Revenue Splits</h2>
+          <p style={{ fontSize: 11, color: "var(--ink-3)", marginBottom: 14 }}>
+            Adjust the percentage each recipient receives per club. Changes take effect immediately.
+          </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {clubs.map((club) => {
+              const split = splits.find((s) => s.clubSlug === club.slug);
+              if (!split) return null;
+              const total = split.recipients.reduce((s, r) => s + (r.pct || 0), 0);
+              const valid = Math.round(total) === 100;
+              return (
+                <div key={club.slug} className="bs-card" style={{ padding: "16px 20px" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ fontSize: 18 }}>{club.flag}</span>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)" }}>{club.city}</span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <span style={{ fontSize: 10, fontFamily: "var(--font-dm-mono, monospace)", padding: "2px 8px", borderRadius: 20, background: valid ? "rgba(31,77,58,0.1)" : "rgba(139,26,26,0.1)", color: valid ? "var(--bs-green, #1f4d3a)" : "var(--burgundy)", border: `1px solid ${valid ? "rgba(31,77,58,0.2)" : "rgba(139,26,26,0.2)"}` }}>
+                        {total}% / 100%
+                      </span>
+                      {splitSaved === club.slug && <span style={{ fontSize: 11, color: "var(--bs-green, #1f4d3a)", fontFamily: "var(--font-dm-mono, monospace)" }}>Saved ✓</span>}
+                      <button
+                        onClick={() => saveSplit(club.slug, split.recipients)}
+                        disabled={!valid || splitSaving === club.slug}
+                        style={{ fontFamily: "var(--font-dm-mono, monospace)", fontSize: 11, padding: "4px 14px", borderRadius: 7, border: "none", background: valid ? "var(--ink)" : "var(--rule)", color: valid ? "var(--brass)" : "var(--ink-3)", cursor: valid && !splitSaving ? "pointer" : "not-allowed", opacity: splitSaving === club.slug ? 0.6 : 1 }}
+                      >
+                        {splitSaving === club.slug ? "Saving…" : "Save"}
+                      </button>
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {split.recipients.map((r) => (
+                      <div key={r.name} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <span style={{ flex: 1, fontSize: 13, color: "var(--ink)" }}>{r.name}</span>
+                        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                          <input
+                            type="number" min={0} max={100}
+                            value={r.pct}
+                            onChange={(e) => updateSplitPct(club.slug, r.name, Number(e.target.value))}
+                            style={{ width: 56, padding: "4px 8px", borderRadius: 7, border: "1px solid var(--rule)", background: "var(--paper)", color: "var(--ink)", fontSize: 12, fontFamily: "var(--font-dm-mono, monospace)", textAlign: "center", outline: "none" }}
+                          />
+                          <span style={{ fontSize: 11, color: "var(--ink-3)" }}>%</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {/* Earnings history */}
       {profile.recipientName && (
