@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
-import { put } from "@vercel/blob";
+import { put, list, del } from "@vercel/blob";
 import type { ExpenseCategory } from "./expense-categories";
 
 export type { ExpenseCategory } from "./expense-categories";
@@ -20,64 +20,67 @@ export interface Expense {
   createdAt: string;
 }
 
-const BLOB_PATH = "data/expenses.json";
+const BLOB_PREFIX = "expense-entries/";
 const TMP_FILE = "/tmp/expenses.json";
 const SEED_FILE = path.join(process.cwd(), "data", "expenses.json");
 
-function getBlobUrl(): string | null {
-  const token = process.env.BLOB_READ_WRITE_TOKEN;
-  if (!token) return null;
-  const storeId = token.split("_")[3];
-  if (!storeId) return null;
-  return `https://${storeId}.public.blob.vercel-storage.com/${BLOB_PATH}`;
+function hasBlob(): boolean {
+  return !!process.env.BLOB_READ_WRITE_TOKEN;
 }
 
-async function readStore(): Promise<Expense[]> {
-  const blobUrl = getBlobUrl();
-  if (blobUrl) {
-    try {
-      const res = await fetch(blobUrl, { cache: "no-store" });
-      if (res.status === 404) return [];
-      if (!res.ok) { console.error("[expenses-store] blob fetch failed:", res.status, blobUrl); return []; }
-      const data = await res.json();
-      return Array.isArray(data) ? (data as Expense[]) : [];
-    } catch (err) {
-      console.error("[expenses-store] readStore error:", err);
-      return [];
-    }
+async function blobReadAll(): Promise<Expense[]> {
+  try {
+    const { blobs } = await list({ prefix: BLOB_PREFIX, limit: 1000 });
+    if (blobs.length === 0) return [];
+    const results = await Promise.all(
+      blobs.map(async (b) => {
+        try {
+          const res = await fetch(b.url, { cache: "no-store" });
+          return res.ok ? (await res.json() as Expense) : null;
+        } catch {
+          return null;
+        }
+      })
+    );
+    return results.filter((e): e is Expense => e !== null);
+  } catch (err) {
+    console.error("[expenses-store] blobReadAll error:", err);
+    return [];
   }
+}
+
+async function blobWriteEntry(expense: Expense): Promise<void> {
+  await put(`${BLOB_PREFIX}${expense.id}.json`, JSON.stringify(expense), {
+    access: "public",
+    contentType: "application/json",
+    addRandomSuffix: false,
+    allowOverwrite: true,
+  });
+}
+
+async function blobDeleteEntry(id: string): Promise<boolean> {
+  const { blobs } = await list({ prefix: `${BLOB_PREFIX}${id}.json`, limit: 1 });
+  if (blobs.length === 0) return false;
+  await del(blobs[0].url);
+  return true;
+}
+
+function fileReadAll(): Expense[] {
   for (const file of [TMP_FILE, SEED_FILE]) {
     try {
       if (fs.existsSync(file)) {
-        const raw = fs.readFileSync(file, "utf-8");
-        const parsed = JSON.parse(raw);
+        const parsed = JSON.parse(fs.readFileSync(file, "utf-8"));
         if (Array.isArray(parsed) && parsed.length > 0) return parsed as Expense[];
       }
-    } catch {
-      // try next
-    }
+    } catch { /* try next */ }
   }
   return [];
 }
 
-async function writeStore(entries: Expense[]): Promise<void> {
+function fileWriteAll(entries: Expense[]): void {
   const json = JSON.stringify(entries, null, 2);
-  if (getBlobUrl()) {
-    try {
-      await put(BLOB_PATH, json, {
-        access: "public",
-        contentType: "application/json",
-        addRandomSuffix: false,
-        allowOverwrite: true,
-      });
-    } catch (err) {
-      console.error("[expenses-store] writeStore error:", err);
-      throw err;
-    }
-    return;
-  }
   fs.writeFileSync(TMP_FILE, json);
-  try { fs.writeFileSync(SEED_FILE, json); } catch { /* read-only on some deployments */ }
+  try { fs.writeFileSync(SEED_FILE, json); } catch { /* read-only on Vercel */ }
 }
 
 function filterByDate(entries: Expense[], from?: string, to?: string): Expense[] {
@@ -89,30 +92,39 @@ function filterByDate(entries: Expense[], from?: string, to?: string): Expense[]
 }
 
 export async function getAllExpenses(from?: string, to?: string): Promise<Expense[]> {
-  return filterByDate(await readStore(), from, to);
+  const all = hasBlob() ? await blobReadAll() : fileReadAll();
+  return filterByDate(all, from, to);
 }
 
 export async function getExpensesForClub(slug: string, from?: string, to?: string): Promise<Expense[]> {
-  return filterByDate((await readStore()).filter((e) => e.clubSlug === slug), from, to);
+  const all = hasBlob() ? await blobReadAll() : fileReadAll();
+  return filterByDate(all.filter((e) => e.clubSlug === slug), from, to);
 }
 
 export async function addExpense(data: Omit<Expense, "id" | "createdAt">): Promise<Expense> {
-  const entries = await readStore();
   const expense: Expense = {
     ...data,
     id: uuidv4(),
     createdAt: new Date().toISOString(),
   };
-  entries.push(expense);
-  await writeStore(entries);
+  if (hasBlob()) {
+    await blobWriteEntry(expense);
+  } else {
+    const all = fileReadAll();
+    all.push(expense);
+    fileWriteAll(all);
+  }
   return expense;
 }
 
 export async function deleteExpense(id: string): Promise<boolean> {
-  const entries = await readStore();
-  const next = entries.filter((e) => e.id !== id);
-  if (next.length === entries.length) return false;
-  await writeStore(next);
+  if (hasBlob()) {
+    return blobDeleteEntry(id);
+  }
+  const all = fileReadAll();
+  const next = all.filter((e) => e.id !== id);
+  if (next.length === all.length) return false;
+  fileWriteAll(next);
   return true;
 }
 
