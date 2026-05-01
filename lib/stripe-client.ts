@@ -145,7 +145,14 @@ async function _fetchAllPaymentsRaw(
       status: pi.status,
       created: pi.created,
       description,
-      clubSlug: getClubSlug(pi.amount, pi.currency, description, pi.metadata as Record<string, string> | null, ((pi as unknown as Record<string, unknown>).payment_link as string | null) ?? null),
+      clubSlug: getClubSlug(
+        pi.amount, pi.currency, description,
+        pi.metadata as Record<string, string> | null,
+        // Stripe auto-sets payment_link on the charge metadata for payment link purchases
+        (charge?.metadata?.payment_link as string | undefined)
+          ?? ((pi as unknown as Record<string, unknown>).payment_link as string | null)
+          ?? null
+      ),
       customerName: charge?.billing_details?.name ?? null,
       customerEmail: charge?.billing_details?.email ?? null,
       fee: feeInPresentment,
