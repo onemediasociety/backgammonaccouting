@@ -1,5 +1,13 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Keep dynamic-page RSC payloads in the client router cache for 2 minutes.
+  // Navigating between pages reuses the cached render instead of re-fetching Stripe.
+  experimental: {
+    staleTimes: {
+      dynamic: 120,
+      static: 300,
+    },
+  },
   outputFileTracingIncludes: {
     "/api/cash": ["./data/**/*"],
     "/api/expenses": ["./data/**/*"],

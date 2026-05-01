@@ -175,13 +175,13 @@ async function _fetchChargesRaw(
 const _cachedPayments = unstable_cache(
   _fetchAllPaymentsRaw,
   ["stripe-payments"],
-  { revalidate: 120, tags: ["stripe-data"] }
+  { revalidate: 300, tags: ["stripe-data"] }
 );
 
 const _cachedCharges = unstable_cache(
   _fetchChargesRaw,
   ["stripe-charges"],
-  { revalidate: 120, tags: ["stripe-data"] }
+  { revalidate: 300, tags: ["stripe-data"] }
 );
 
 // ─── Public API ──────────────────────────────────────────────────────────────

@@ -23,6 +23,15 @@ interface UserProfile {
   recipientName?: string;
 }
 
+interface CashEvent {
+  id: string;
+  date: string;
+  event: string;
+  playerCount: number;
+  buyInAmount: number;
+  totalAmount: number;
+}
+
 interface ClubBreakdown {
   slug: string;
   city: string;
@@ -32,6 +41,7 @@ interface ClubBreakdown {
   cashCents: number;
   feeCents: number;
   netCents: number;
+  cashEvents: CashEvent[];
 }
 
 // ── Club Admin: own earnings view ────────────────────────────────────────────
@@ -139,6 +149,7 @@ function SuperAdminView() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [transferring, setTransferring] = useState<string>("");
+  const [selectedClub, setSelectedClub] = useState<string>("all");
 
   useEffect(() => {
     fetch("/api/payouts").then((r) => r.json()).then(setHistory).catch(() => {});
@@ -163,7 +174,7 @@ function SuperAdminView() {
 
       const payments: { clubSlug: string; amount: number; currency: string; status: string }[] =
         paymentsRes.ok ? await paymentsRes.json() : [];
-      const cashEntries: { clubSlug: string; totalAmount: number; currency: string }[] =
+      const cashEntries: { id: string; clubSlug: string; date: string; event: string; playerCount: number; buyInAmount: number; totalAmount: number; currency: string }[] =
         cashRes.ok ? await cashRes.json() : [];
       const fees: Record<string, number> = feesRes.ok ? await feesRes.json() : {};
       const clubList: { slug: string; city: string; flag: string; currency: string }[] =
@@ -174,19 +185,24 @@ function SuperAdminView() {
         if (p.status !== "succeeded") continue;
         stripeByClub[p.clubSlug] = (stripeByClub[p.clubSlug] ?? 0) + p.amount;
       }
-      const cashByClub: Record<string, number> = {};
+
+      const cashByClub: Record<string, { cents: number; events: CashEvent[] }> = {};
       for (const c of cashEntries) {
-        cashByClub[c.clubSlug] = (cashByClub[c.clubSlug] ?? 0) + Math.round(c.totalAmount * 100);
+        if (!cashByClub[c.clubSlug]) cashByClub[c.clubSlug] = { cents: 0, events: [] };
+        cashByClub[c.clubSlug].cents += Math.round(c.totalAmount * 100);
+        cashByClub[c.clubSlug].events.push({ id: c.id, date: c.date, event: c.event, playerCount: c.playerCount, buyInAmount: c.buyInAmount, totalAmount: c.totalAmount });
       }
 
       const breakdowns: ClubBreakdown[] = clubList.map((c) => {
         const stripeCents = stripeByClub[c.slug] ?? 0;
-        const cashCents = cashByClub[c.slug] ?? 0;
+        const cashCents = cashByClub[c.slug]?.cents ?? 0;
         const feeCents = fees[c.slug] ?? 0;
-        return { slug: c.slug, city: c.city, flag: c.flag, currency: c.currency, stripeCents, cashCents, feeCents, netCents: stripeCents + cashCents - feeCents };
+        const cashEvents = (cashByClub[c.slug]?.events ?? []).sort((a, b) => a.date.localeCompare(b.date));
+        return { slug: c.slug, city: c.city, flag: c.flag, currency: c.currency, stripeCents, cashCents, feeCents, netCents: stripeCents + cashCents - feeCents, cashEvents };
       }).filter((c) => c.stripeCents > 0 || c.cashCents > 0);
 
       setClubs(breakdowns);
+      setSelectedClub("all");
     } catch {
       setError("Failed to load data. Please try again.");
     } finally {
@@ -297,11 +313,31 @@ function SuperAdminView() {
                 </div>
               </div>
 
+              {/* City filter */}
+              <div style={{ marginBottom: 16, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <p className="bs-mono" style={{ fontSize: 10, color: "var(--ink-3)", letterSpacing: "0.08em", textTransform: "uppercase" }}>Filter by City:</p>
+                {[{ slug: "all", label: "All Cities" }, ...clubs.map((c) => ({ slug: c.slug, label: `${c.flag} ${c.city}` }))].map((opt) => (
+                  <button
+                    key={opt.slug}
+                    onClick={() => setSelectedClub(opt.slug)}
+                    style={{
+                      fontFamily: "var(--font-dm-mono, monospace)", fontSize: 11,
+                      padding: "4px 12px", borderRadius: 20, cursor: "pointer",
+                      border: selectedClub === opt.slug ? "none" : "1px solid var(--rule)",
+                      background: selectedClub === opt.slug ? "var(--ink)" : "transparent",
+                      color: selectedClub === opt.slug ? "var(--brass)" : "var(--ink-3)",
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+
               {/* Per-club breakdown */}
               <div style={{ marginBottom: 24 }}>
                 <p className="bs-mono" style={{ fontSize: 10, color: "var(--ink-3)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>Breakdown by Club</p>
                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                  {clubs.map((club) => {
+                  {clubs.filter((c) => selectedClub === "all" || c.slug === selectedClub).map((club) => {
                     const split = splits.find((s) => s.clubSlug === club.slug);
                     const clubEntries = allEntries.filter((e) => e.clubSlug === club.slug);
                     return (
@@ -321,25 +357,61 @@ function SuperAdminView() {
                             <Stat label="Net" value={fmt(club.netCents, club.currency)} bold />
                           </div>
                         </div>
-                        {split && clubEntries.length > 0 ? (
-                          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-                            <thead>
-                              <tr>
-                                {["Recipient","Split","Payout"].map((h, i) => (
-                                  <th key={h} style={{ textAlign: i === 0 ? "left" : "right", padding: "5px 10px", fontFamily: "var(--font-dm-mono, monospace)", fontSize: 10, color: "var(--ink-3)", fontWeight: 400, letterSpacing: "0.06em", textTransform: "uppercase", borderBottom: "1px solid var(--rule)" }}>{h}</th>
-                                ))}
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {clubEntries.map((e, i) => (
-                                <tr key={i}>
-                                  <td style={{ padding: "7px 10px", color: "var(--ink)", borderBottom: "1px solid var(--rule)" }}>{e.recipientName}</td>
-                                  <td className="bs-mono" style={{ padding: "7px 10px", textAlign: "right", color: "var(--ink-3)", borderBottom: "1px solid var(--rule)" }}>{e.pct}%</td>
-                                  <td className="bs-mono" style={{ padding: "7px 10px", textAlign: "right", fontWeight: 700, color: "var(--ink)", borderBottom: "1px solid var(--rule)" }}>{fmt(e.amountCents, e.currency)}</td>
+
+                        {/* Cash events per event */}
+                        {club.cashEvents.length > 0 && (
+                          <div style={{ marginBottom: 14 }}>
+                            <p style={{ fontSize: 10, fontFamily: "var(--font-dm-mono, monospace)", color: "var(--ink-3)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 8 }}>Cash Buy-in Events</p>
+                            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                              <thead>
+                                <tr>
+                                  {["Date","Event","Players","Buy-in","Total"].map((h, i) => (
+                                    <th key={h} style={{ textAlign: i < 2 ? "left" : "right", padding: "4px 8px", fontFamily: "var(--font-dm-mono, monospace)", fontSize: 9, color: "var(--ink-3)", fontWeight: 400, letterSpacing: "0.06em", textTransform: "uppercase", borderBottom: "1px solid var(--rule)" }}>{h}</th>
+                                  ))}
                                 </tr>
-                              ))}
-                            </tbody>
-                          </table>
+                              </thead>
+                              <tbody>
+                                {club.cashEvents.map((ev) => (
+                                  <tr key={ev.id}>
+                                    <td className="bs-mono" style={{ padding: "6px 8px", fontSize: 11, color: "var(--ink-3)", borderBottom: "1px solid var(--rule)" }}>{ev.date}</td>
+                                    <td style={{ padding: "6px 8px", color: "var(--ink)", borderBottom: "1px solid var(--rule)" }}>{ev.event}</td>
+                                    <td className="bs-mono" style={{ padding: "6px 8px", textAlign: "right", color: "var(--ink-3)", borderBottom: "1px solid var(--rule)" }}>{ev.playerCount}</td>
+                                    <td className="bs-mono" style={{ padding: "6px 8px", textAlign: "right", color: "var(--ink-3)", borderBottom: "1px solid var(--rule)" }}>{fmt(ev.buyInAmount * 100, club.currency)}</td>
+                                    <td className="bs-mono" style={{ padding: "6px 8px", textAlign: "right", fontWeight: 600, color: "var(--ink)", borderBottom: "1px solid var(--rule)" }}>{fmt(ev.totalAmount * 100, club.currency)}</td>
+                                  </tr>
+                                ))}
+                                <tr>
+                                  <td colSpan={4} style={{ padding: "6px 8px", fontFamily: "var(--font-dm-mono, monospace)", fontSize: 10, color: "var(--ink-3)", borderTop: "2px solid var(--rule)" }}>Total Cash</td>
+                                  <td className="bs-mono" style={{ padding: "6px 8px", textAlign: "right", fontWeight: 700, color: "var(--ink)", borderTop: "2px solid var(--rule)" }}>{fmt(club.cashCents, club.currency)}</td>
+                                </tr>
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+
+                        {/* Split table */}
+                        {split && clubEntries.length > 0 ? (
+                          <>
+                            <p style={{ fontSize: 10, fontFamily: "var(--font-dm-mono, monospace)", color: "var(--ink-3)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 8 }}>Revenue Split</p>
+                            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                              <thead>
+                                <tr>
+                                  {["Recipient","Split","Payout"].map((h, i) => (
+                                    <th key={h} style={{ textAlign: i === 0 ? "left" : "right", padding: "5px 10px", fontFamily: "var(--font-dm-mono, monospace)", fontSize: 10, color: "var(--ink-3)", fontWeight: 400, letterSpacing: "0.06em", textTransform: "uppercase", borderBottom: "1px solid var(--rule)" }}>{h}</th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {clubEntries.map((e, i) => (
+                                  <tr key={i}>
+                                    <td style={{ padding: "7px 10px", color: "var(--ink)", borderBottom: "1px solid var(--rule)" }}>{e.recipientName}</td>
+                                    <td className="bs-mono" style={{ padding: "7px 10px", textAlign: "right", color: "var(--ink-3)", borderBottom: "1px solid var(--rule)" }}>{e.pct}%</td>
+                                    <td className="bs-mono" style={{ padding: "7px 10px", textAlign: "right", fontWeight: 700, color: "var(--ink)", borderBottom: "1px solid var(--rule)" }}>{fmt(e.amountCents, e.currency)}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </>
                         ) : (
                           <p style={{ fontSize: 11, color: "var(--ink-3)", fontStyle: "italic" }}>No split configured for this club.</p>
                         )}
