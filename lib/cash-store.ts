@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
-import { put, list } from "@vercel/blob";
+import { put } from "@vercel/blob";
 
 export interface CashEntry {
   id: string;
@@ -19,15 +19,24 @@ export interface CashEntry {
 const BLOB_PATH = "data/cash-buyins.json";
 const TMP_FILE = "/tmp/cash-buyins.json";
 const SEED_FILE = path.join(process.cwd(), "data", "cash-buyins.json");
-const USE_BLOB = !!process.env.BLOB_READ_WRITE_TOKEN;
+
+// Derive the public blob URL directly from the token so we can fetch without
+// a list() round-trip. Token format: vercel_blob_rw_{storeId}_{key}
+function getBlobUrl(): string | null {
+  const token = process.env.BLOB_READ_WRITE_TOKEN;
+  if (!token) return null;
+  const storeId = token.split("_")[3];
+  if (!storeId) return null;
+  return `https://${storeId}.public.blob.vercel-storage.com/${BLOB_PATH}`;
+}
 
 async function readStore(): Promise<CashEntry[]> {
-  if (USE_BLOB) {
+  const blobUrl = getBlobUrl();
+  if (blobUrl) {
     try {
-      const { blobs } = await list({ prefix: BLOB_PATH, limit: 1 });
-      if (blobs.length === 0) return [];
-      const res = await fetch(blobs[0].url, { cache: "no-store" });
-      if (!res.ok) { console.error("[cash-store] blob fetch failed:", res.status); return []; }
+      const res = await fetch(blobUrl, { cache: "no-store" });
+      if (res.status === 404) return []; // blob doesn't exist yet
+      if (!res.ok) { console.error("[cash-store] blob fetch failed:", res.status, blobUrl); return []; }
       const data = await res.json();
       return Array.isArray(data) ? (data as CashEntry[]) : [];
     } catch (err) {
@@ -51,12 +60,13 @@ async function readStore(): Promise<CashEntry[]> {
 
 async function writeStore(entries: CashEntry[]): Promise<void> {
   const json = JSON.stringify(entries, null, 2);
-  if (USE_BLOB) {
+  if (getBlobUrl()) {
     try {
       await put(BLOB_PATH, json, {
         access: "public",
         contentType: "application/json",
         addRandomSuffix: false,
+        allowOverwrite: true,
       });
     } catch (err) {
       console.error("[cash-store] writeStore error:", err);
