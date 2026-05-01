@@ -73,12 +73,19 @@ function classifyByDescription(description: string | null): string | null {
   return null;
 }
 
+function slugFromMetadata(metadata: Record<string, string> | null | undefined): string | null {
+  if (!metadata) return null;
+  const val = metadata.club ?? metadata.clubSlug ?? metadata.club_slug ?? null;
+  return val ? val.toLowerCase() : null;
+}
+
 function getClubSlug(
   amount: number,
   currency: string,
-  description: string | null
+  description: string | null,
+  metadata?: Record<string, string> | null
 ): string {
-  return classifyByDescription(description) ?? classifyPayment(amount, currency).slug;
+  return slugFromMetadata(metadata) ?? classifyByDescription(description) ?? classifyPayment(amount, currency).slug;
 }
 
 // ─── Single Stripe fetch: payments + fees in one paginated call ───────────────
@@ -121,7 +128,7 @@ async function _fetchAllPaymentsRaw(
       status: pi.status,
       created: pi.created,
       description,
-      clubSlug: getClubSlug(pi.amount, pi.currency, description),
+      clubSlug: getClubSlug(pi.amount, pi.currency, description, pi.metadata as Record<string, string> | null),
       customerName: charge?.billing_details?.name ?? null,
       customerEmail: charge?.billing_details?.email ?? null,
       fee: feeInPresentment,
