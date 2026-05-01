@@ -148,10 +148,22 @@ async function _fetchChargesRaw(
   const results: ChargeRecord[] = [];
   for await (const c of stripe.charges.list(params)) {
     const bt = c.balance_transaction as Stripe.BalanceTransaction | null;
+    // bt.fee is in the settlement currency (e.g. USD for a US Stripe account).
+    // For cross-currency charges (CHF, EUR, CAD), we convert back to the
+    // presentment currency using bt.exchange_rate so the fee is comparable
+    // to the revenue figure shown on each club page.
+    // exchange_rate: 1 presentment unit = exchange_rate settlement units
+    // fee_in_presentment = fee_in_settlement / exchange_rate
+    const exchangeRate = bt?.exchange_rate ?? null;
+    const feeInPresentment = bt
+      ? exchangeRate
+        ? Math.round(bt.fee / exchangeRate)
+        : bt.fee   // same currency — no conversion needed
+      : 0;
     results.push({
       id: c.id,
       amount: c.amount,
-      fee: bt?.fee ?? 0,
+      fee: feeInPresentment,
       net: bt?.net ?? c.amount,
       currency: c.currency,
       status: c.status,
