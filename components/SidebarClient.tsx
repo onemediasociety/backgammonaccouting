@@ -80,9 +80,12 @@ export default function SidebarClient({ clubs, username, role, isSuper }: Props)
     );
   }
 
+  // Payouts visible to everyone (super admin sees full view, club admins see their earnings)
+  baseItems.push({ href: "/payouts", label: "Payouts", icon: Icons.payouts });
+  baseItems.push({ href: "/profile", label: "My Profile", icon: <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="5.5" r="2.5" stroke="currentColor" strokeWidth="1.3"/><path d="M2 13c0-3.31 2.69-6 6-6s6 2.69 6 6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg> });
+
   if (isSuper) {
     baseItems.push(
-      { href: "/payouts", label: "Payouts", icon: Icons.payouts },
       { href: "/reports", label: "Reports", icon: Icons.reports },
       { href: "/members", label: "Members", icon: Icons.members },
       { href: "/admin", label: "Settings", icon: Icons.admin },

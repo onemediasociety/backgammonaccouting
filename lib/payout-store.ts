@@ -11,6 +11,8 @@ export interface PayoutEntry {
   pct: number;
   netCents: number;
   amountCents: number;
+  transferredAt?: string;
+  transferNote?: string;
 }
 
 export interface ProcessedPayout {
@@ -70,6 +72,19 @@ export function recordPayout(
   all.push(payout);
   writeStore(all);
   return payout;
+}
+
+// Marks all entries for a recipient in a payout as transferred
+export function markTransferred(payoutId: string, recipientName: string, note?: string): ProcessedPayout | null {
+  const all = readStore();
+  const idx = all.findIndex((p) => p.id === payoutId);
+  if (idx < 0) return null;
+  const now = new Date().toISOString();
+  all[idx].entries = all[idx].entries.map((e) =>
+    e.recipientName === recipientName ? { ...e, transferredAt: now, transferNote: note ?? "" } : e
+  );
+  writeStore(all);
+  return all[idx];
 }
 
 // Returns YTD total paid to a recipient (by name) across all payouts in a given year

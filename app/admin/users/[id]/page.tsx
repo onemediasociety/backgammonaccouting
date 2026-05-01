@@ -12,7 +12,7 @@ export default function EditUserPage() {
   const id = params.id as string;
 
   const [user, setUser] = useState<SafeUser | null>(null);
-  const [form, setForm] = useState({ username: "", password: "", clubSlugs: [] as string[], status: "active" as "active" | "pending" });
+  const [form, setForm] = useState({ username: "", password: "", clubSlugs: [] as string[], status: "active" as "active" | "pending", recipientName: "" });
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -22,7 +22,8 @@ export default function EditUserPage() {
       .then((r) => r.json())
       .then((u: SafeUser) => {
         setUser(u);
-        setForm({ username: u.username, password: "", clubSlugs: u.clubSlugs, status: (u as SafeUser & { status?: string }).status as "active" | "pending" ?? "active" });
+        const u2 = u as SafeUser & { recipientName?: string };
+        setForm({ username: u.username, password: "", clubSlugs: u.clubSlugs, status: (u as SafeUser & { status?: string }).status as "active" | "pending" ?? "active", recipientName: u2.recipientName ?? "" });
       })
       .catch(() => setError("Failed to load user."))
       .finally(() => setLoading(false));
@@ -45,7 +46,7 @@ export default function EditUserPage() {
       const res = await fetch(`/api/admin/users/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: form.username, password: form.password || undefined, clubSlugs: form.clubSlugs, status: form.status }),
+        body: JSON.stringify({ username: form.username, password: form.password || undefined, clubSlugs: form.clubSlugs, status: form.status, recipientName: form.recipientName || null }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? "Failed to update user."); return; }
@@ -138,6 +139,19 @@ export default function EditUserPage() {
                 placeholder="••••••••"
               />
             </Field>
+          </div>
+          <div style={{ marginTop: 16 }}>
+            <Field label="Recipient Name (links to payout split)">
+              <input
+                type="text" value={form.recipientName}
+                onChange={(e) => setForm((p) => ({ ...p, recipientName: e.target.value }))}
+                style={inputStyle}
+                placeholder="e.g. Tina — must match name in splits config"
+              />
+            </Field>
+            <p style={{ fontSize: 10, color: "var(--ink-3)", marginTop: 5, fontFamily: "var(--font-dm-mono, monospace)" }}>
+              Must exactly match the recipient name in Settings → Revenue Splits
+            </p>
           </div>
         </div>
 

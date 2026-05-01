@@ -3,6 +3,14 @@ import path from "path";
 import crypto from "crypto";
 import { v4 as uuidv4 } from "uuid";
 
+export interface BankDetails {
+  accountHolderName: string;
+  bankName: string;
+  routingNumber: string;
+  accountNumber: string;
+  accountType: "checking" | "savings";
+}
+
 export interface User {
   id: string;
   username: string;
@@ -10,6 +18,8 @@ export interface User {
   role: "club_admin"; // only stored role; super_admin is virtual-only via SITE_PASSWORD
   status: "active" | "pending";
   clubSlugs: string[];
+  recipientName?: string;  // links this account to a split recipient (e.g. "Tina")
+  bankDetails?: BankDetails;
   createdAt: string;
   updatedAt: string;
 }
@@ -99,7 +109,7 @@ export function registerUser(data: {
 
 export function updateUser(
   id: string,
-  data: { username?: string; password?: string; clubSlugs?: string[]; status?: "active" | "pending" }
+  data: { username?: string; password?: string; clubSlugs?: string[]; status?: "active" | "pending"; recipientName?: string | null }
 ): SafeUser {
   const users = readStore();
   const idx = users.findIndex((u) => u.id === id);
@@ -121,6 +131,20 @@ export function updateUser(
   if (data.status !== undefined) {
     users[idx].status = data.status;
   }
+  if (data.recipientName !== undefined) {
+    users[idx].recipientName = data.recipientName ?? undefined;
+  }
+  users[idx].updatedAt = new Date().toISOString();
+  writeStore(users);
+  const { passwordHash: _ph, ...safe } = users[idx];
+  return safe;
+}
+
+export function updateUserBankDetails(id: string, bankDetails: BankDetails | null): SafeUser {
+  const users = readStore();
+  const idx = users.findIndex((u) => u.id === id);
+  if (idx < 0) throw new Error("User not found");
+  users[idx].bankDetails = bankDetails ?? undefined;
   users[idx].updatedAt = new Date().toISOString();
   writeStore(users);
   const { passwordHash: _ph, ...safe } = users[idx];

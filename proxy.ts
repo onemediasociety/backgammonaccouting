@@ -3,7 +3,8 @@ import type { NextRequest } from "next/server";
 import { verifySession, type SessionPayload } from "./lib/session";
 
 const PUBLIC = ["/login", "/register", "/pending", "/api/auth", "/_next", "/favicon"];
-const SUPER_ADMIN_ONLY = ["/admin", "/reports", "/payouts", "/members"];
+const SUPER_ADMIN_ONLY = ["/admin", "/reports", "/members"];
+// /payouts and /profile are accessible to all active admins (filtered by role in the page)
 
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;

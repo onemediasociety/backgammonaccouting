@@ -16,6 +16,13 @@ function fmt(cents: number, currency: string) {
   });
 }
 
+interface UserProfile {
+  id: string;
+  username: string;
+  role: string;
+  recipientName?: string;
+}
+
 interface ClubBreakdown {
   slug: string;
   city: string;
@@ -27,7 +34,100 @@ interface ClubBreakdown {
   netCents: number;
 }
 
-export default function PayoutsPage() {
+// ── Club Admin: own earnings view ────────────────────────────────────────────
+function MyEarningsView({ profile, payouts }: { profile: UserProfile; payouts: ProcessedPayout[] }) {
+  if (!profile.recipientName) {
+    return (
+      <div style={{ border: "1px dashed var(--rule)", borderRadius: 10, padding: "36px", textAlign: "center", color: "var(--ink-3)", fontSize: 13 }}>
+        Your account isn&apos;t linked to a payout recipient yet. Contact your administrator.
+      </div>
+    );
+  }
+
+  const myEntries = payouts.flatMap((p) =>
+    p.entries
+      .filter((e) => e.recipientName === profile.recipientName)
+      .map((e) => ({ ...e, payoutId: p.id, periodLabel: p.periodLabel, processedAt: p.processedAt }))
+  );
+
+  const totalEarned = myEntries.reduce((s, e) => s + e.amountCents, 0);
+  const transferred = myEntries.filter((e) => e.transferredAt).reduce((s, e) => s + e.amountCents, 0);
+
+  return (
+    <div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 24 }}>
+        <div className="bs-card" style={{ padding: "16px 20px" }}>
+          <p className="bs-label" style={{ marginBottom: 5 }}>Total Earned</p>
+          <p className="bs-mono" style={{ fontSize: 20, fontWeight: 700 }}>{fmt(totalEarned, "usd")}</p>
+        </div>
+        <div className="bs-card" style={{ padding: "16px 20px" }}>
+          <p className="bs-label" style={{ marginBottom: 5 }}>Transferred</p>
+          <p className="bs-mono" style={{ fontSize: 20, fontWeight: 700, color: "var(--bs-green, #1f4d3a)" }}>{fmt(transferred, "usd")}</p>
+        </div>
+        <div className="bs-card" style={{ padding: "16px 20px" }}>
+          <p className="bs-label" style={{ marginBottom: 5 }}>Pending</p>
+          <p className="bs-mono" style={{ fontSize: 20, fontWeight: 700, color: totalEarned - transferred > 0 ? "var(--brass)" : "var(--ink-3)" }}>{fmt(totalEarned - transferred, "usd")}</p>
+        </div>
+      </div>
+
+      {myEntries.length === 0 ? (
+        <div style={{ border: "1px dashed var(--rule)", borderRadius: 10, padding: "28px", textAlign: "center", color: "var(--ink-3)", fontSize: 13 }}>
+          No payouts recorded yet.
+        </div>
+      ) : (
+        <div className="bs-card" style={{ overflow: "hidden" }}>
+          <table className="bs-table">
+            <thead>
+              <tr>
+                <th>Period</th>
+                <th>Club</th>
+                <th style={{ textAlign: "right" }}>Net Revenue</th>
+                <th style={{ textAlign: "right" }}>Your Split</th>
+                <th style={{ textAlign: "right" }}>Your Earnings</th>
+                <th style={{ textAlign: "right" }}>Status</th>
+                <th style={{ textAlign: "right" }}>Statement</th>
+              </tr>
+            </thead>
+            <tbody>
+              {myEntries.map((e, i) => (
+                <tr key={i}>
+                  <td style={{ fontSize: 13, fontWeight: 600 }}>{e.periodLabel}</td>
+                  <td style={{ fontSize: 12 }}>{e.clubCity}</td>
+                  <td className="bs-mono" style={{ textAlign: "right", fontSize: 12, color: "var(--ink-3)" }}>{fmt(e.netCents, e.currency)}</td>
+                  <td className="bs-mono" style={{ textAlign: "right", fontSize: 12, color: "var(--ink-3)" }}>{e.pct}%</td>
+                  <td className="bs-mono" style={{ textAlign: "right", fontSize: 13, fontWeight: 700 }}>{fmt(e.amountCents, e.currency)}</td>
+                  <td style={{ textAlign: "right" }}>
+                    {e.transferredAt ? (
+                      <span style={{ fontSize: 10, fontFamily: "var(--font-dm-mono, monospace)", padding: "2px 8px", borderRadius: 20, background: "rgba(31,77,58,0.1)", color: "var(--bs-green, #1f4d3a)", border: "1px solid rgba(31,77,58,0.2)" }}>
+                        Transferred
+                      </span>
+                    ) : (
+                      <span style={{ fontSize: 10, fontFamily: "var(--font-dm-mono, monospace)", padding: "2px 8px", borderRadius: 20, background: "rgba(184,144,66,0.1)", color: "var(--brass)", border: "1px solid rgba(184,144,66,0.2)" }}>
+                        Pending
+                      </span>
+                    )}
+                  </td>
+                  <td style={{ textAlign: "right" }}>
+                    <Link
+                      href={`/payouts/${e.payoutId}/statement?recipient=${encodeURIComponent(profile.recipientName!)}`}
+                      target="_blank"
+                      style={{ fontSize: 11, fontFamily: "var(--font-dm-mono, monospace)", color: "var(--brass)", textDecoration: "none" }}
+                    >
+                      View ↗
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Super Admin: full management view ─────────────────────────────────────────
+function SuperAdminView() {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
@@ -38,6 +138,7 @@ export default function PayoutsPage() {
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [transferring, setTransferring] = useState<string>("");
 
   useEffect(() => {
     fetch("/api/payouts").then((r) => r.json()).then(setHistory).catch(() => {});
@@ -73,7 +174,6 @@ export default function PayoutsPage() {
         if (p.status !== "succeeded") continue;
         stripeByClub[p.clubSlug] = (stripeByClub[p.clubSlug] ?? 0) + p.amount;
       }
-
       const cashByClub: Record<string, number> = {};
       for (const c of cashEntries) {
         cashByClub[c.clubSlug] = (cashByClub[c.clubSlug] ?? 0) + Math.round(c.totalAmount * 100);
@@ -83,11 +183,7 @@ export default function PayoutsPage() {
         const stripeCents = stripeByClub[c.slug] ?? 0;
         const cashCents = cashByClub[c.slug] ?? 0;
         const feeCents = fees[c.slug] ?? 0;
-        return {
-          slug: c.slug, city: c.city, flag: c.flag, currency: c.currency,
-          stripeCents, cashCents, feeCents,
-          netCents: stripeCents + cashCents - feeCents,
-        };
+        return { slug: c.slug, city: c.city, flag: c.flag, currency: c.currency, stripeCents, cashCents, feeCents, netCents: stripeCents + cashCents - feeCents };
       }).filter((c) => c.stripeCents > 0 || c.cashCents > 0);
 
       setClubs(breakdowns);
@@ -98,26 +194,19 @@ export default function PayoutsPage() {
     }
   }, [year, month]);
 
-  // Build all payout entries from clubs × splits
   const allEntries: PayoutEntry[] = [];
   for (const club of clubs) {
     const split = splits.find((s) => s.clubSlug === club.slug);
     if (!split) continue;
     for (const r of split.recipients) {
       allEntries.push({
-        clubSlug: club.slug,
-        clubCity: club.city,
-        currency: club.currency,
-        recipientName: r.name,
-        recipientEmail: r.email,
-        pct: r.pct,
-        netCents: club.netCents,
-        amountCents: Math.round(club.netCents * r.pct / 100),
+        clubSlug: club.slug, clubCity: club.city, currency: club.currency,
+        recipientName: r.name, recipientEmail: r.email, pct: r.pct,
+        netCents: club.netCents, amountCents: Math.round(club.netCents * r.pct / 100),
       });
     }
   }
 
-  // Recipient summary totals
   const byRecipient: Record<string, number> = {};
   for (const e of allEntries) {
     if (e.currency === "usd") byRecipient[e.recipientName] = (byRecipient[e.recipientName] ?? 0) + e.amountCents;
@@ -126,19 +215,17 @@ export default function PayoutsPage() {
   async function processPayout() {
     if (allEntries.length === 0) return;
     setProcessing(true);
-    setError("");
-    setSuccess("");
+    setError(""); setSuccess("");
     const period = `${year}-${String(month).padStart(2, "0")}`;
     const periodLabel = `${MONTHS[month - 1]} ${year}`;
     const res = await fetch("/api/payouts", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+      method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ period, periodLabel, entries: allEntries }),
     });
     if (res.ok) {
       const payout = await res.json();
       setHistory((prev) => [payout, ...prev]);
-      setSuccess(`Payout for ${periodLabel} recorded. Download statements below.`);
+      setSuccess(`Payout for ${periodLabel} recorded.`);
       setClubs([]);
     } else {
       const data = await res.json().catch(() => ({}));
@@ -147,25 +234,30 @@ export default function PayoutsPage() {
     setProcessing(false);
   }
 
+  async function markTransferred(payoutId: string, recipientName: string) {
+    const key = `${payoutId}:${recipientName}`;
+    setTransferring(key);
+    const note = prompt(`Transfer note for ${recipientName} (optional):`) ?? "";
+    const res = await fetch(`/api/payouts/${payoutId}/transfer`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ recipientName, note }),
+    });
+    if (res.ok) {
+      const updated: ProcessedPayout = await res.json();
+      setHistory((prev) => prev.map((p) => p.id === payoutId ? updated : p));
+    }
+    setTransferring("");
+  }
+
   const period = `${year}-${String(month).padStart(2, "0")}`;
   const alreadyProcessed = history.some((h) => h.period === period);
 
   return (
     <div>
-      {/* Header */}
-      <div style={{ marginBottom: 28 }}>
-        <h1 className="bs-heading" style={{ fontSize: 28, marginBottom: 3 }}>Payouts</h1>
-        <p className="bs-mono" style={{ fontSize: 10, color: "var(--ink-3)", letterSpacing: "0.1em", textTransform: "uppercase" }}>
-          Monthly earnings distribution
-        </p>
-      </div>
-
       {/* Calculator */}
       <section style={{ marginBottom: 32 }}>
         <h2 className="bs-heading" style={{ fontSize: 18, marginBottom: 14 }}>Calculate Monthly Payout</h2>
         <div className="bs-card" style={{ padding: "20px 24px" }}>
-
-          {/* Month / Year picker */}
           <div style={{ display: "flex", alignItems: "flex-end", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>
             <div>
               <label style={{ display: "block", fontSize: 10, fontFamily: "var(--font-dm-mono, monospace)", color: "var(--ink-3)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 5 }}>Month</label>
@@ -179,43 +271,27 @@ export default function PayoutsPage() {
                 {[now.getFullYear() - 1, now.getFullYear()].map((y) => <option key={y} value={y}>{y}</option>)}
               </select>
             </div>
-            <button
-              onClick={calculate}
-              disabled={loadingCalc}
-              style={{ fontFamily: "var(--font-dm-mono, monospace)", fontSize: 12, padding: "8px 20px", borderRadius: 8, border: "none", background: "var(--ink)", color: "var(--brass)", cursor: loadingCalc ? "wait" : "pointer", opacity: loadingCalc ? 0.6 : 1 }}
-            >
+            <button onClick={calculate} disabled={loadingCalc} style={{ fontFamily: "var(--font-dm-mono, monospace)", fontSize: 12, padding: "8px 20px", borderRadius: 8, border: "none", background: "var(--ink)", color: "var(--brass)", cursor: loadingCalc ? "wait" : "pointer", opacity: loadingCalc ? 0.6 : 1 }}>
               {loadingCalc ? "Calculating…" : "Calculate"}
             </button>
             {alreadyProcessed && !loadingCalc && (
-              <span style={{ fontSize: 11, color: "var(--brass)", fontFamily: "var(--font-dm-mono, monospace)" }}>
-                ⚠ Already processed for this period
-              </span>
+              <span style={{ fontSize: 11, color: "var(--brass)", fontFamily: "var(--font-dm-mono, monospace)" }}>⚠ Already processed for this period</span>
             )}
           </div>
 
-          {error && (
-            <div style={{ background: "rgba(139,26,26,0.07)", border: "1px solid rgba(139,26,26,0.2)", borderRadius: 8, padding: "10px 14px", marginBottom: 16, fontSize: 12, color: "var(--burgundy)" }}>
-              {error}
-            </div>
-          )}
-          {success && (
-            <div style={{ background: "rgba(31,77,58,0.07)", border: "1px solid rgba(31,77,58,0.2)", borderRadius: 8, padding: "10px 14px", marginBottom: 16, fontSize: 12, color: "var(--bs-green, #1f4d3a)" }}>
-              {success}
-            </div>
-          )}
+          {error && <div style={{ background: "rgba(139,26,26,0.07)", border: "1px solid rgba(139,26,26,0.2)", borderRadius: 8, padding: "10px 14px", marginBottom: 16, fontSize: 12, color: "var(--burgundy)" }}>{error}</div>}
+          {success && <div style={{ background: "rgba(31,77,58,0.07)", border: "1px solid rgba(31,77,58,0.2)", borderRadius: 8, padding: "10px 14px", marginBottom: 16, fontSize: 12, color: "var(--bs-green, #1f4d3a)" }}>{success}</div>}
 
           {clubs.length > 0 && (
             <>
               {/* Recipient summary */}
               <div style={{ marginBottom: 24 }}>
-                <p className="bs-mono" style={{ fontSize: 10, color: "var(--ink-3)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>
-                  Total Payouts · {MONTHS[month - 1]} {year}
-                </p>
+                <p className="bs-mono" style={{ fontSize: 10, color: "var(--ink-3)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>Total Payouts · {MONTHS[month - 1]} {year}</p>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 10 }}>
                   {Object.entries(byRecipient).map(([name, cents]) => (
                     <div key={name} className="bs-card" style={{ padding: "14px 16px" }}>
                       <p style={{ fontSize: 10, color: "var(--ink-3)", fontFamily: "var(--font-dm-mono, monospace)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 4 }}>{name}</p>
-                      <p className="bs-mono" style={{ fontSize: 20, fontWeight: 700, color: "var(--ink)" }}>{fmt(cents, "usd")}</p>
+                      <p className="bs-mono" style={{ fontSize: 20, fontWeight: 700 }}>{fmt(cents, "usd")}</p>
                     </div>
                   ))}
                 </div>
@@ -223,16 +299,13 @@ export default function PayoutsPage() {
 
               {/* Per-club breakdown */}
               <div style={{ marginBottom: 24 }}>
-                <p className="bs-mono" style={{ fontSize: 10, color: "var(--ink-3)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>
-                  Breakdown by Club
-                </p>
+                <p className="bs-mono" style={{ fontSize: 10, color: "var(--ink-3)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>Breakdown by Club</p>
                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                   {clubs.map((club) => {
                     const split = splits.find((s) => s.clubSlug === club.slug);
                     const clubEntries = allEntries.filter((e) => e.clubSlug === club.slug);
                     return (
                       <div key={club.slug} className="bs-card" style={{ padding: "18px 20px" }}>
-                        {/* Club header */}
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, flexWrap: "wrap", gap: 8 }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                             <span style={{ fontSize: 22 }}>{club.flag}</span>
@@ -248,15 +321,13 @@ export default function PayoutsPage() {
                             <Stat label="Net" value={fmt(club.netCents, club.currency)} bold />
                           </div>
                         </div>
-
-                        {/* Split table */}
                         {split && clubEntries.length > 0 ? (
                           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
                             <thead>
                               <tr>
-                                <th style={{ textAlign: "left", padding: "5px 10px", fontFamily: "var(--font-dm-mono, monospace)", fontSize: 10, color: "var(--ink-3)", fontWeight: 400, letterSpacing: "0.06em", textTransform: "uppercase", borderBottom: "1px solid var(--rule)" }}>Recipient</th>
-                                <th style={{ textAlign: "right", padding: "5px 10px", fontFamily: "var(--font-dm-mono, monospace)", fontSize: 10, color: "var(--ink-3)", fontWeight: 400, letterSpacing: "0.06em", textTransform: "uppercase", borderBottom: "1px solid var(--rule)" }}>Split</th>
-                                <th style={{ textAlign: "right", padding: "5px 10px", fontFamily: "var(--font-dm-mono, monospace)", fontSize: 10, color: "var(--ink-3)", fontWeight: 400, letterSpacing: "0.06em", textTransform: "uppercase", borderBottom: "1px solid var(--rule)" }}>Payout</th>
+                                {["Recipient","Split","Payout"].map((h, i) => (
+                                  <th key={h} style={{ textAlign: i === 0 ? "left" : "right", padding: "5px 10px", fontFamily: "var(--font-dm-mono, monospace)", fontSize: 10, color: "var(--ink-3)", fontWeight: 400, letterSpacing: "0.06em", textTransform: "uppercase", borderBottom: "1px solid var(--rule)" }}>{h}</th>
+                                ))}
                               </tr>
                             </thead>
                             <tbody>
@@ -279,16 +350,8 @@ export default function PayoutsPage() {
               </div>
 
               <button
-                onClick={processPayout}
-                disabled={processing || alreadyProcessed}
-                style={{
-                  fontFamily: "var(--font-dm-mono, monospace)", fontSize: 12,
-                  padding: "10px 24px", borderRadius: 8, border: "none",
-                  background: alreadyProcessed ? "var(--rule)" : "var(--bs-green, #1f4d3a)",
-                  color: alreadyProcessed ? "var(--ink-3)" : "#fff",
-                  cursor: processing || alreadyProcessed ? "not-allowed" : "pointer",
-                  opacity: processing ? 0.6 : 1, fontWeight: 500,
-                }}
+                onClick={processPayout} disabled={processing || alreadyProcessed}
+                style={{ fontFamily: "var(--font-dm-mono, monospace)", fontSize: 12, padding: "10px 24px", borderRadius: 8, border: "none", background: alreadyProcessed ? "var(--rule)" : "var(--bs-green, #1f4d3a)", color: alreadyProcessed ? "var(--ink-3)" : "#fff", cursor: processing || alreadyProcessed ? "not-allowed" : "pointer", opacity: processing ? 0.6 : 1, fontWeight: 500 }}
               >
                 {processing ? "Recording…" : alreadyProcessed ? "Already Processed" : `Record Payout · ${MONTHS[month - 1]} ${year}`}
               </button>
@@ -297,58 +360,114 @@ export default function PayoutsPage() {
         </div>
       </section>
 
-      {/* History */}
+      {/* History with transfer controls */}
       <section>
         <h2 className="bs-heading" style={{ fontSize: 18, marginBottom: 14 }}>Payout History</h2>
         {history.length === 0 ? (
-          <div style={{ border: "1px dashed var(--rule)", borderRadius: 10, padding: "32px", textAlign: "center", color: "var(--ink-3)", fontSize: 13 }}>
-            No payouts recorded yet.
-          </div>
+          <div style={{ border: "1px dashed var(--rule)", borderRadius: 10, padding: "32px", textAlign: "center", color: "var(--ink-3)", fontSize: 13 }}>No payouts recorded yet.</div>
         ) : (
-          <div className="bs-card" style={{ overflow: "hidden" }}>
-            <table className="bs-table">
-              <thead>
-                <tr>
-                  <th>Period</th>
-                  <th>Processed</th>
-                  <th>By</th>
-                  <th style={{ textAlign: "right" }}>Recipients</th>
-                  <th style={{ textAlign: "right" }}>Statements</th>
-                </tr>
-              </thead>
-              <tbody>
-                {history.map((p) => {
-                  const recipients = [...new Set(p.entries.map((e) => e.recipientName))];
-                  return (
-                    <tr key={p.id}>
-                      <td style={{ fontSize: 13, fontWeight: 600 }}>{p.periodLabel}</td>
-                      <td className="bs-mono" style={{ fontSize: 11, color: "var(--ink-3)" }}>
-                        {new Date(p.processedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                      </td>
-                      <td className="bs-mono" style={{ fontSize: 11, color: "var(--ink-3)" }}>{p.processedBy}</td>
-                      <td style={{ textAlign: "right", fontSize: 12 }}>{recipients.join(", ")}</td>
-                      <td style={{ textAlign: "right" }}>
-                        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
-                          {recipients.map((name) => (
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            {history.map((p) => {
+              const recipients = [...new Set(p.entries.map((e) => e.recipientName))];
+              const byRecip: Record<string, { entries: typeof p.entries; transferred: boolean }> = {};
+              for (const r of recipients) {
+                const rEntries = p.entries.filter((e) => e.recipientName === r);
+                byRecip[r] = { entries: rEntries, transferred: rEntries.every((e) => e.transferredAt) };
+              }
+              return (
+                <div key={p.id} className="bs-card" style={{ padding: "18px 20px" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, flexWrap: "wrap", gap: 8 }}>
+                    <div>
+                      <p style={{ fontSize: 15, fontWeight: 600, color: "var(--ink)", marginBottom: 2 }}>{p.periodLabel}</p>
+                      <p className="bs-mono" style={{ fontSize: 10, color: "var(--ink-3)" }}>
+                        Processed {new Date(p.processedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} by {p.processedBy}
+                      </p>
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {recipients.map((name) => {
+                      const { entries: rEntries, transferred } = byRecip[name];
+                      const total = rEntries.reduce((s, e) => s + e.amountCents, 0);
+                      const currency = rEntries[0]?.currency ?? "usd";
+                      const key = `${p.id}:${name}`;
+                      return (
+                        <div key={name} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderRadius: 8, background: "var(--paper-2)", flexWrap: "wrap", gap: 8 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                            <span style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)" }}>{name}</span>
+                            <span className="bs-mono" style={{ fontSize: 13, color: "var(--ink)" }}>{fmt(total, currency)}</span>
+                            {transferred ? (
+                              <span style={{ fontSize: 10, fontFamily: "var(--font-dm-mono, monospace)", padding: "2px 8px", borderRadius: 20, background: "rgba(31,77,58,0.1)", color: "var(--bs-green, #1f4d3a)", border: "1px solid rgba(31,77,58,0.2)" }}>Transferred ✓</span>
+                            ) : (
+                              <span style={{ fontSize: 10, fontFamily: "var(--font-dm-mono, monospace)", padding: "2px 8px", borderRadius: 20, background: "rgba(184,144,66,0.1)", color: "var(--brass)", border: "1px solid rgba(184,144,66,0.2)" }}>Pending</span>
+                            )}
+                          </div>
+                          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                             <Link
-                              key={name}
                               href={`/payouts/${p.id}/statement?recipient=${encodeURIComponent(name)}`}
                               target="_blank"
-                              style={{ fontSize: 11, fontFamily: "var(--font-dm-mono, monospace)", color: "var(--brass)", textDecoration: "none", padding: "3px 8px", border: "1px solid rgba(184,144,66,0.3)", borderRadius: 6 }}
+                              style={{ fontSize: 11, fontFamily: "var(--font-dm-mono, monospace)", color: "var(--brass)", textDecoration: "none", padding: "4px 10px", border: "1px solid rgba(184,144,66,0.3)", borderRadius: 6 }}
                             >
-                              {name} ↗
+                              Statement ↗
                             </Link>
-                          ))}
+                            {!transferred && (
+                              <button
+                                onClick={() => markTransferred(p.id, name)}
+                                disabled={transferring === key}
+                                style={{ fontSize: 11, fontFamily: "var(--font-dm-mono, monospace)", padding: "4px 10px", borderRadius: 6, border: "none", background: "var(--bs-green, #1f4d3a)", color: "#fff", cursor: "pointer", opacity: transferring === key ? 0.6 : 1 }}
+                              >
+                                {transferring === key ? "Marking…" : "Mark Transferred"}
+                              </button>
+                            )}
+                          </div>
                         </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </section>
+    </div>
+  );
+}
+
+// ── Main page — routes by role ─────────────────────────────────────────────────
+export default function PayoutsPage() {
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [payouts, setPayouts] = useState<ProcessedPayout[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([
+      fetch("/api/profile").then((r) => r.json()),
+      fetch("/api/payouts").then((r) => r.json()),
+    ]).then(([p, h]: [UserProfile, ProcessedPayout[]]) => {
+      setProfile(p);
+      setPayouts(h);
+    }).catch(() => {}).finally(() => setLoading(false));
+  }, []);
+
+  return (
+    <div>
+      <div style={{ marginBottom: 28 }}>
+        <h1 className="bs-heading" style={{ fontSize: 28, marginBottom: 3 }}>Payouts</h1>
+        <p className="bs-mono" style={{ fontSize: 10, color: "var(--ink-3)", letterSpacing: "0.1em", textTransform: "uppercase" }}>
+          Monthly earnings distribution
+        </p>
+      </div>
+
+      {loading ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div className="bs-skeleton" style={{ height: 160, borderRadius: 12 }} />
+          <div className="bs-skeleton" style={{ height: 260, borderRadius: 12 }} />
+        </div>
+      ) : profile?.role === "super_admin" ? (
+        <SuperAdminView />
+      ) : (
+        <MyEarningsView profile={profile!} payouts={payouts} />
+      )}
     </div>
   );
 }
