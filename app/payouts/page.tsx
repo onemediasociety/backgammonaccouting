@@ -231,9 +231,15 @@ function SuperAdminView() {
     }
   }
 
-  const byRecipient: Record<string, number> = {};
+  const byRecipient: Record<string, { cents: number; cities: string[] }> = {};
   for (const e of allEntries) {
-    if (e.currency === "usd") byRecipient[e.recipientName] = (byRecipient[e.recipientName] ?? 0) + e.amountCents;
+    if (e.currency === "usd") {
+      if (!byRecipient[e.recipientName]) byRecipient[e.recipientName] = { cents: 0, cities: [] };
+      byRecipient[e.recipientName].cents += e.amountCents;
+      if (!byRecipient[e.recipientName].cities.includes(e.clubCity)) {
+        byRecipient[e.recipientName].cities.push(e.clubCity);
+      }
+    }
   }
 
   async function processPayout() {
@@ -312,9 +318,10 @@ function SuperAdminView() {
               <div style={{ marginBottom: 24 }}>
                 <p className="bs-mono" style={{ fontSize: 10, color: "var(--ink-3)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>Total Payouts · {MONTHS[month - 1]} {year}</p>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 10 }}>
-                  {Object.entries(byRecipient).map(([name, cents]) => (
+                  {Object.entries(byRecipient).map(([name, { cents, cities }]) => (
                     <div key={name} className="bs-card" style={{ padding: "14px 16px" }}>
-                      <p style={{ fontSize: 10, color: "var(--ink-3)", fontFamily: "var(--font-dm-mono, monospace)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 4 }}>{name}</p>
+                      <p style={{ fontSize: 10, color: "var(--ink-3)", fontFamily: "var(--font-dm-mono, monospace)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 2 }}>{name}</p>
+                      <p style={{ fontSize: 9, color: "var(--ink-3)", fontFamily: "var(--font-dm-mono, monospace)", marginBottom: 6 }}>{cities.join(" · ")}</p>
                       <p className="bs-mono" style={{ fontSize: 20, fontWeight: 700 }}>{fmt(cents, "usd")}</p>
                     </div>
                   ))}
