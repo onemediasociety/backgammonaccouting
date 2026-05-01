@@ -35,8 +35,10 @@ export async function GET(req: NextRequest) {
     stripePayments = [];
   }
 
-  const cashEntries = getAllCashEntries(range.from ?? undefined, range.to ?? undefined);
-  const expenses = getAllExpenses(range.from ?? undefined, range.to ?? undefined);
+  const [cashEntries, expenses] = await Promise.all([
+    getAllCashEntries(range.from ?? undefined, range.to ?? undefined),
+    getAllExpenses(range.from ?? undefined, range.to ?? undefined),
+  ]);
 
   const rows: string[] = [];
 

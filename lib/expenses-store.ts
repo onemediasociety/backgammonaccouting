@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
+import { put, list } from "@vercel/blob";
 import type { ExpenseCategory } from "./expense-categories";
 
 export type { ExpenseCategory } from "./expense-categories";
@@ -19,10 +20,23 @@ export interface Expense {
   createdAt: string;
 }
 
+const BLOB_PATH = "data/expenses.json";
 const TMP_FILE = "/tmp/expenses.json";
 const SEED_FILE = path.join(process.cwd(), "data", "expenses.json");
+const USE_BLOB = !!process.env.BLOB_READ_WRITE_TOKEN;
 
-function readStore(): Expense[] {
+async function readStore(): Promise<Expense[]> {
+  if (USE_BLOB) {
+    try {
+      const { blobs } = await list({ prefix: BLOB_PATH });
+      if (blobs.length === 0) return [];
+      const res = await fetch(blobs[0].url, { cache: "no-store" });
+      const data = await res.json();
+      return Array.isArray(data) ? (data as Expense[]) : [];
+    } catch {
+      return [];
+    }
+  }
   for (const file of [TMP_FILE, SEED_FILE]) {
     try {
       if (fs.existsSync(file)) {
@@ -37,8 +51,16 @@ function readStore(): Expense[] {
   return [];
 }
 
-function writeStore(entries: Expense[]): void {
+async function writeStore(entries: Expense[]): Promise<void> {
   const json = JSON.stringify(entries, null, 2);
+  if (USE_BLOB) {
+    await put(BLOB_PATH, json, {
+      access: "public",
+      contentType: "application/json",
+      addRandomSuffix: false,
+    });
+    return;
+  }
   fs.writeFileSync(TMP_FILE, json);
   try { fs.writeFileSync(SEED_FILE, json); } catch { /* read-only on some deployments */ }
 }
@@ -51,39 +73,37 @@ function filterByDate(entries: Expense[], from?: string, to?: string): Expense[]
   });
 }
 
-export function getAllExpenses(from?: string, to?: string): Expense[] {
-  return filterByDate(readStore(), from, to);
+export async function getAllExpenses(from?: string, to?: string): Promise<Expense[]> {
+  return filterByDate(await readStore(), from, to);
 }
 
-export function getExpensesForClub(slug: string, from?: string, to?: string): Expense[] {
-  return filterByDate(readStore().filter((e) => e.clubSlug === slug), from, to);
+export async function getExpensesForClub(slug: string, from?: string, to?: string): Promise<Expense[]> {
+  return filterByDate((await readStore()).filter((e) => e.clubSlug === slug), from, to);
 }
 
-export function addExpense(
-  data: Omit<Expense, "id" | "createdAt">
-): Expense {
-  const entries = readStore();
+export async function addExpense(data: Omit<Expense, "id" | "createdAt">): Promise<Expense> {
+  const entries = await readStore();
   const expense: Expense = {
     ...data,
     id: uuidv4(),
     createdAt: new Date().toISOString(),
   };
   entries.push(expense);
-  writeStore(entries);
+  await writeStore(entries);
   return expense;
 }
 
-export function deleteExpense(id: string): boolean {
-  const entries = readStore();
+export async function deleteExpense(id: string): Promise<boolean> {
+  const entries = await readStore();
   const next = entries.filter((e) => e.id !== id);
   if (next.length === entries.length) return false;
-  writeStore(next);
+  await writeStore(next);
   return true;
 }
 
-export function getExpenseTotalsPerClub(from?: string, to?: string): Record<string, number> {
+export async function getExpenseTotalsPerClub(from?: string, to?: string): Promise<Record<string, number>> {
   const totals: Record<string, number> = {};
-  for (const e of getAllExpenses(from, to)) {
+  for (const e of await getAllExpenses(from, to)) {
     totals[e.clubSlug] = (totals[e.clubSlug] ?? 0) + e.amountCents;
   }
   return totals;

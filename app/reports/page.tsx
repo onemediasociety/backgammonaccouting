@@ -75,8 +75,10 @@ async function ReportsData({
     error = e instanceof Error ? e.message : "Stripe error";
   }
 
-  const cashTotals = getCashTotalsPerClub(range.from ?? undefined, range.to ?? undefined);
-  const expenseTotals = getExpenseTotalsPerClub(range.from ?? undefined, range.to ?? undefined);
+  const [cashTotals, expenseTotals] = await Promise.all([
+    getCashTotalsPerClub(range.from ?? undefined, range.to ?? undefined),
+    getExpenseTotalsPerClub(range.from ?? undefined, range.to ?? undefined),
+  ]);
 
   const rows = CLUBS.map((club) => {
     const stripeCents = summaries?.find((s) => s.club.slug === club.slug)?.totalCents ?? 0;

@@ -28,10 +28,10 @@ export async function GET(req: NextRequest) {
   const toTs_ = toTs(range.to, true);
 
   const CLUBS = getAllClubs();
-  const [cashTotals, expenseTotals] = [
+  const [cashTotals, expenseTotals] = await Promise.all([
     getCashTotalsPerClub(range.from ?? undefined, range.to ?? undefined),
     getExpenseTotalsPerClub(range.from ?? undefined, range.to ?? undefined),
-  ];
+  ]);
 
   let stripeSummaries: Awaited<ReturnType<typeof buildClubSummaries>> = [];
   try {

@@ -83,8 +83,8 @@ async function OverviewData({
       fetchAllPayments(effectiveFromTs, toTs_),
       fetchBalance(),
       fetchFeesByClub(fromTs, toTs_).then((f) => { feesAvailable = true; return f; }).catch(() => ({})),
-      Promise.resolve(getCashTotalsPerClub(range.from ?? undefined, range.to ?? undefined)),
-      Promise.resolve(getExpenseTotalsPerClub(range.from ?? undefined, range.to ?? undefined)),
+      getCashTotalsPerClub(range.from ?? undefined, range.to ?? undefined),
+      getExpenseTotalsPerClub(range.from ?? undefined, range.to ?? undefined),
     ]);
 
     balance = bal;
@@ -109,7 +109,7 @@ async function OverviewData({
       };
     });
 
-    cashEntriesForChart = getAllCashEntries(sixMonthsAgo.toISOString().slice(0, 10), undefined);
+    cashEntriesForChart = await getAllCashEntries(sixMonthsAgo.toISOString().slice(0, 10), undefined);
   } catch (e: unknown) {
     error = e instanceof Error ? e.message : "Failed to load data";
   }

@@ -41,7 +41,7 @@ export default async function PrintPage({
   }
 
   const succeeded = stripePayments.filter((p) => p.status === "succeeded");
-  const cashEntries = getCashEntriesForClub(club.slug, range.from ?? undefined, range.to ?? undefined);
+  const cashEntries = await getCashEntriesForClub(club.slug, range.from ?? undefined, range.to ?? undefined);
 
   const stripeTotal = succeeded.reduce((s, p) => s + p.amount, 0);
   const cashTotal = cashEntries.reduce((s, e) => s + e.totalAmount, 0);

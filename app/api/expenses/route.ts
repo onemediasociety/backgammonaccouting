@@ -5,7 +5,7 @@ export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams;
   const from = sp.get("from") ?? undefined;
   const to = sp.get("to") ?? undefined;
-  return NextResponse.json(getAllExpenses(from, to));
+  return NextResponse.json(await getAllExpenses(from, to));
 }
 
 export async function POST(req: NextRequest) {
@@ -20,6 +20,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "A receipt or invoice must be uploaded." }, { status: 400 });
   }
 
-  const expense = addExpense({ clubSlug, date, category, description, amountCents, currency, notes: notes ?? "", receiptUrl });
+  const expense = await addExpense({ clubSlug, date, category, description, amountCents, currency, notes: notes ?? "", receiptUrl });
   return NextResponse.json(expense, { status: 201 });
 }

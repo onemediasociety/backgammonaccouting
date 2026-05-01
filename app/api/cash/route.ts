@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
   const club = searchParams.get("club");
   const from = searchParams.get("from") ?? undefined;
   const to = searchParams.get("to") ?? undefined;
-  const entries = club ? getCashEntriesForClub(club, from, to) : getAllCashEntries(from, to);
+  const entries = club ? await getCashEntriesForClub(club, from, to) : await getAllCashEntries(from, to);
   return NextResponse.json(entries);
 }
 
@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    const entry = addCashEntry({
+    const entry = await addCashEntry({
       clubSlug,
       date,
       event,

@@ -61,7 +61,7 @@ export async function GET(req: NextRequest) {
     // Stripe unavailable — export cash only
   }
 
-  const cashEntries = getCashEntriesForClub(slug, from ?? undefined, to ?? undefined);
+  const cashEntries = await getCashEntriesForClub(slug, from ?? undefined, to ?? undefined);
   const cashRows = cashEntries.map((e) =>
     row([
       e.date,

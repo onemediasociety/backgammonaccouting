@@ -57,9 +57,11 @@ async function StripeData({
 }) {
   const session = await getSession();
   const split = getSplitForClub(slug);
-  const cashEntries = getCashEntriesForClub(slug, range.from ?? undefined, range.to ?? undefined);
+  const [cashEntries, expenses] = await Promise.all([
+    getCashEntriesForClub(slug, range.from ?? undefined, range.to ?? undefined),
+    getExpensesForClub(slug, range.from ?? undefined, range.to ?? undefined),
+  ]);
   const cashTotal = cashEntries.reduce((s, e) => s + e.totalAmount, 0);
-  const expenses = getExpensesForClub(slug, range.from ?? undefined, range.to ?? undefined);
   const expenseTotal = expenses.reduce((s, e) => s + e.amountCents, 0);
 
   let stripePayments = null;
@@ -206,8 +208,10 @@ export default async function ClubPage({
   const toTs_ = toTs(range.to, true);
 
   // These are instant file reads — no Stripe needed
-  const cashEntries = getCashEntriesForClub(club.slug, range.from ?? undefined, range.to ?? undefined);
-  const expenses = getExpensesForClub(club.slug, range.from ?? undefined, range.to ?? undefined);
+  const [cashEntries, expenses] = await Promise.all([
+    getCashEntriesForClub(club.slug, range.from ?? undefined, range.to ?? undefined),
+    getExpensesForClub(club.slug, range.from ?? undefined, range.to ?? undefined),
+  ]);
   const expenseTotal = expenses.reduce((s, e) => s + e.amountCents, 0);
 
   const periodLabel = range.from && range.to

@@ -26,10 +26,10 @@ export async function GET(req: NextRequest) {
   const fromTs = toTs(range.from);
   const toTs_ = toTs(range.to, true);
 
-  const [cashTotals, expenseTotals] = [
+  const [cashTotals, expenseTotals] = await Promise.all([
     getCashTotalsPerClub(range.from ?? undefined, range.to ?? undefined),
     getExpenseTotalsPerClub(range.from ?? undefined, range.to ?? undefined),
-  ];
+  ]);
 
   let summaries: Awaited<ReturnType<typeof buildClubSummaries>> = [];
   try {

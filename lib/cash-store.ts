@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
+import { put, list } from "@vercel/blob";
 
 export interface CashEntry {
   id: string;
@@ -15,13 +16,23 @@ export interface CashEntry {
   createdAt: string;
 }
 
-// On Vercel the project root is read-only; use /tmp for writes.
-// Reads fall back to the bundled seed file in /data.
+const BLOB_PATH = "data/cash-buyins.json";
 const TMP_FILE = "/tmp/cash-buyins.json";
 const SEED_FILE = path.join(process.cwd(), "data", "cash-buyins.json");
+const USE_BLOB = !!process.env.BLOB_READ_WRITE_TOKEN;
 
-function readStore(): CashEntry[] {
-  // Prefer /tmp (has any entries added at runtime)
+async function readStore(): Promise<CashEntry[]> {
+  if (USE_BLOB) {
+    try {
+      const { blobs } = await list({ prefix: BLOB_PATH });
+      if (blobs.length === 0) return [];
+      const res = await fetch(blobs[0].url, { cache: "no-store" });
+      const data = await res.json();
+      return Array.isArray(data) ? (data as CashEntry[]) : [];
+    } catch {
+      return [];
+    }
+  }
   for (const file of [TMP_FILE, SEED_FILE]) {
     try {
       if (fs.existsSync(file)) {
@@ -36,18 +47,18 @@ function readStore(): CashEntry[] {
   return [];
 }
 
-function writeStore(entries: CashEntry[]): void {
+async function writeStore(entries: CashEntry[]): Promise<void> {
   const json = JSON.stringify(entries, null, 2);
+  if (USE_BLOB) {
+    await put(BLOB_PATH, json, {
+      access: "public",
+      contentType: "application/json",
+      addRandomSuffix: false,
+    });
+    return;
+  }
   fs.writeFileSync(TMP_FILE, json);
   try { fs.writeFileSync(SEED_FILE, json); } catch { /* read-only on some deployments */ }
-}
-
-export function getAllCashEntries(from?: string, to?: string): CashEntry[] {
-  return filterByDate(readStore(), from, to);
-}
-
-export function getCashEntriesForClub(slug: string, from?: string, to?: string): CashEntry[] {
-  return filterByDate(readStore().filter((e) => e.clubSlug === slug), from, to);
 }
 
 function filterByDate(entries: CashEntry[], from?: string, to?: string): CashEntry[] {
@@ -58,8 +69,16 @@ function filterByDate(entries: CashEntry[], from?: string, to?: string): CashEnt
   });
 }
 
-export function addCashEntry(data: Omit<CashEntry, "id" | "totalAmount" | "createdAt">): CashEntry {
-  const entries = readStore();
+export async function getAllCashEntries(from?: string, to?: string): Promise<CashEntry[]> {
+  return filterByDate(await readStore(), from, to);
+}
+
+export async function getCashEntriesForClub(slug: string, from?: string, to?: string): Promise<CashEntry[]> {
+  return filterByDate((await readStore()).filter((e) => e.clubSlug === slug), from, to);
+}
+
+export async function addCashEntry(data: Omit<CashEntry, "id" | "totalAmount" | "createdAt">): Promise<CashEntry> {
+  const entries = await readStore();
   const entry: CashEntry = {
     ...data,
     id: uuidv4(),
@@ -67,21 +86,21 @@ export function addCashEntry(data: Omit<CashEntry, "id" | "totalAmount" | "creat
     createdAt: new Date().toISOString(),
   };
   entries.push(entry);
-  writeStore(entries);
+  await writeStore(entries);
   return entry;
 }
 
-export function deleteCashEntry(id: string): boolean {
-  const entries = readStore();
+export async function deleteCashEntry(id: string): Promise<boolean> {
+  const entries = await readStore();
   const next = entries.filter((e) => e.id !== id);
   if (next.length === entries.length) return false;
-  writeStore(next);
+  await writeStore(next);
   return true;
 }
 
-export function getCashTotalsPerClub(from?: string, to?: string): Record<string, number> {
+export async function getCashTotalsPerClub(from?: string, to?: string): Promise<Record<string, number>> {
   const totals: Record<string, number> = {};
-  for (const e of getAllCashEntries(from, to)) {
+  for (const e of await getAllCashEntries(from, to)) {
     totals[e.clubSlug] = (totals[e.clubSlug] ?? 0) + e.totalAmount;
   }
   return totals;
