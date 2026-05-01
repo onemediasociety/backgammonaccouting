@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { formatAmount } from "@/lib/clubs";
 import type { CashEntry } from "@/lib/cash-store";
 
@@ -33,6 +33,15 @@ export default function CashSection({ initialEntries, clubSlug, currency }: Prop
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  // Always re-fetch from API on mount to get persisted data, regardless of
+  // what the server rendered (Vercel serverless instances may have stale file state)
+  useEffect(() => {
+    fetch(`/api/cash?club=${encodeURIComponent(clubSlug)}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data: CashEntry[] | null) => { if (data) setEntries(data); })
+      .catch(() => {});
+  }, [clubSlug]);
   const [form, setForm] = useState({
     date: new Date().toISOString().slice(0, 10),
     event: "",

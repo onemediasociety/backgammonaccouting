@@ -24,12 +24,14 @@ const USE_BLOB = !!process.env.BLOB_READ_WRITE_TOKEN;
 async function readStore(): Promise<CashEntry[]> {
   if (USE_BLOB) {
     try {
-      const { blobs } = await list({ prefix: BLOB_PATH });
+      const { blobs } = await list({ prefix: BLOB_PATH, limit: 1 });
       if (blobs.length === 0) return [];
       const res = await fetch(blobs[0].url, { cache: "no-store" });
+      if (!res.ok) { console.error("[cash-store] blob fetch failed:", res.status); return []; }
       const data = await res.json();
       return Array.isArray(data) ? (data as CashEntry[]) : [];
-    } catch {
+    } catch (err) {
+      console.error("[cash-store] readStore error:", err);
       return [];
     }
   }
@@ -50,11 +52,16 @@ async function readStore(): Promise<CashEntry[]> {
 async function writeStore(entries: CashEntry[]): Promise<void> {
   const json = JSON.stringify(entries, null, 2);
   if (USE_BLOB) {
-    await put(BLOB_PATH, json, {
-      access: "public",
-      contentType: "application/json",
-      addRandomSuffix: false,
-    });
+    try {
+      await put(BLOB_PATH, json, {
+        access: "public",
+        contentType: "application/json",
+        addRandomSuffix: false,
+      });
+    } catch (err) {
+      console.error("[cash-store] writeStore error:", err);
+      throw err;
+    }
     return;
   }
   fs.writeFileSync(TMP_FILE, json);
