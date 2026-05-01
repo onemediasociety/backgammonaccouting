@@ -82,10 +82,21 @@ async function StripeData({
     feesAvailable = true;
   } catch { /* fees unavailable */ }
 
-  const stripeTotal = stripePayments?.filter((p) => p.status === "succeeded").reduce((s, p) => s + p.amount, 0) ?? 0;
-  const stripeCount = stripePayments?.filter((p) => p.status === "succeeded").length ?? 0;
+  const succeededPayments = stripePayments?.filter((p) => p.status === "succeeded") ?? [];
+  const stripeTotal = succeededPayments.reduce((s, p) => s + p.amount, 0);
+  const stripeCount = succeededPayments.length;
   const grossProfit = stripeTotal + cashTotal;
   const netIncome = grossProfit - stripeFees;
+
+  // For non-USD clubs: show implied exchange rate from actual fee data
+  let feeRateNote: string | null = null;
+  if (currency !== "usd" && feesAvailable && stripeFees > 0) {
+    const totalFeeUsd = succeededPayments.reduce((s, p) => s + p.feeUsd, 0);
+    if (totalFeeUsd > 0) {
+      const localPerUsd = stripeFees / totalFeeUsd;
+      feeRateNote = `avg 1 USD = ${localPerUsd.toFixed(3)} ${currency.toUpperCase()}`;
+    }
+  }
 
   return (
     <>
@@ -96,7 +107,7 @@ async function StripeData({
         <Kpi label="Gross Profit" value={formatAmount(grossProfit, currency)} />
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12, marginBottom: 24 }}>
-        <Kpi label="Stripe Fees" value={feesAvailable ? `(${formatAmount(stripeFees, currency)})` : "—"} color="burgundy" sub={feesAvailable ? "deducted from net" : "unavailable"} />
+        <Kpi label="Stripe Fees" value={feesAvailable ? `(${formatAmount(stripeFees, currency)})` : "—"} color="burgundy" sub={feesAvailable ? `deducted from net${feeRateNote ? ` · ${feeRateNote}` : ""}` : "unavailable"} />
         <Kpi label="Tracked Expenses" value={expenseTotal > 0 ? formatAmount(expenseTotal, currency) : "—"} color="burgundy" sub="not included in net" />
       </div>
 

@@ -25,6 +25,7 @@ export interface PaymentRecord {
   customerName: string | null;
   customerEmail: string | null;
   fee: number;           // in presentment currency (same as amount)
+  feeUsd: number;        // raw fee in USD (Stripe settlement currency)
   receiptUrl: string | null;
 }
 
@@ -124,6 +125,7 @@ async function _fetchAllPaymentsRaw(
       customerName: charge?.billing_details?.name ?? null,
       customerEmail: charge?.billing_details?.email ?? null,
       fee: feeInPresentment,
+      feeUsd: bt?.fee ?? 0,
       receiptUrl: charge?.receipt_url ?? null,
     });
     if (results.length >= maxRecords) break;
