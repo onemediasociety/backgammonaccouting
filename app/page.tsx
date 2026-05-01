@@ -82,7 +82,7 @@ async function OverviewData({
     const [allPayments, bal, fees, ct, et] = await Promise.all([
       fetchAllPayments(effectiveFromTs, toTs_),
       fetchBalance(),
-      fetchFeesByClub(fromTs, toTs_, 300).then((f) => { feesAvailable = true; return f; }).catch(() => ({})),
+      fetchFeesByClub(fromTs, toTs_).then((f) => { feesAvailable = true; return f; }).catch(() => ({})),
       Promise.resolve(getCashTotalsPerClub(range.from ?? undefined, range.to ?? undefined)),
       Promise.resolve(getExpenseTotalsPerClub(range.from ?? undefined, range.to ?? undefined)),
     ]);
