@@ -1,10 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Keep dynamic-page RSC payloads in the client router cache for 2 minutes.
-  // Navigating between pages reuses the cached render instead of re-fetching Stripe.
+  // staleTimes.dynamic is left at the default (0) so date-filter navigation always
+  // triggers a fresh server render. Stripe data is cached server-side via
+  // unstable_cache (30-min TTL) so cross-page navigation is still fast without
+  // stale client-side renders blocking the date filter.
   experimental: {
     staleTimes: {
-      dynamic: 1800,
       static: 1800,
     },
   },
