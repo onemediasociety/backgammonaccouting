@@ -197,7 +197,7 @@ function SuperAdminView() {
       const cashByClub: Record<string, { cents: number; events: CashEvent[] }> = {};
       for (const c of cashEntries) {
         if (!cashByClub[c.clubSlug]) cashByClub[c.clubSlug] = { cents: 0, events: [] };
-        cashByClub[c.clubSlug].cents += Math.round(c.totalAmount * 100);
+        cashByClub[c.clubSlug].cents += c.totalAmount;
         cashByClub[c.clubSlug].events.push({ id: c.id, date: c.date, event: c.event, playerCount: c.playerCount, buyInAmount: c.buyInAmount, totalAmount: c.totalAmount });
       }
 
@@ -384,8 +384,8 @@ function SuperAdminView() {
                                     <td className="bs-mono" style={{ padding: "6px 8px", fontSize: 11, color: "var(--ink-3)", borderBottom: "1px solid var(--rule)" }}>{ev.date}</td>
                                     <td style={{ padding: "6px 8px", color: "var(--ink)", borderBottom: "1px solid var(--rule)" }}>{ev.event}</td>
                                     <td className="bs-mono" style={{ padding: "6px 8px", textAlign: "right", color: "var(--ink-3)", borderBottom: "1px solid var(--rule)" }}>{ev.playerCount}</td>
-                                    <td className="bs-mono" style={{ padding: "6px 8px", textAlign: "right", color: "var(--ink-3)", borderBottom: "1px solid var(--rule)" }}>{fmt(ev.buyInAmount * 100, club.currency)}</td>
-                                    <td className="bs-mono" style={{ padding: "6px 8px", textAlign: "right", fontWeight: 600, color: "var(--ink)", borderBottom: "1px solid var(--rule)" }}>{fmt(ev.totalAmount * 100, club.currency)}</td>
+                                    <td className="bs-mono" style={{ padding: "6px 8px", textAlign: "right", color: "var(--ink-3)", borderBottom: "1px solid var(--rule)" }}>{fmt(ev.buyInAmount, club.currency)}</td>
+                                    <td className="bs-mono" style={{ padding: "6px 8px", textAlign: "right", fontWeight: 600, color: "var(--ink)", borderBottom: "1px solid var(--rule)" }}>{fmt(ev.totalAmount, club.currency)}</td>
                                   </tr>
                                 ))}
                                 <tr>
