@@ -73,6 +73,18 @@ function classifyByDescription(description: string | null): string | null {
   return null;
 }
 
+// Parse PAYMENT_LINK_CLUBS env var: comma-separated "plinkId:clubSlug" pairs
+// e.g. PAYMENT_LINK_CLUBS=plink_abc123:dc,plink_def456:miami
+function getPaymentLinkMap(): Record<string, string> {
+  const raw = process.env.PAYMENT_LINK_CLUBS ?? "";
+  const map: Record<string, string> = {};
+  for (const pair of raw.split(",")) {
+    const [id, slug] = pair.trim().split(":");
+    if (id && slug) map[id.trim()] = slug.trim().toLowerCase();
+  }
+  return map;
+}
+
 function slugFromMetadata(metadata: Record<string, string> | null | undefined): string | null {
   if (!metadata) return null;
   const val = metadata.club ?? metadata.clubSlug ?? metadata.club_slug ?? null;
@@ -83,8 +95,13 @@ function getClubSlug(
   amount: number,
   currency: string,
   description: string | null,
-  metadata?: Record<string, string> | null
+  metadata?: Record<string, string> | null,
+  paymentLinkId?: string | null,
 ): string {
+  if (paymentLinkId) {
+    const mapped = getPaymentLinkMap()[paymentLinkId];
+    if (mapped) return mapped;
+  }
   return slugFromMetadata(metadata) ?? classifyByDescription(description) ?? classifyPayment(amount, currency).slug;
 }
 
@@ -128,7 +145,7 @@ async function _fetchAllPaymentsRaw(
       status: pi.status,
       created: pi.created,
       description,
-      clubSlug: getClubSlug(pi.amount, pi.currency, description, pi.metadata as Record<string, string> | null),
+      clubSlug: getClubSlug(pi.amount, pi.currency, description, pi.metadata as Record<string, string> | null, ((pi as unknown as Record<string, unknown>).payment_link as string | null) ?? null),
       customerName: charge?.billing_details?.name ?? null,
       customerEmail: charge?.billing_details?.email ?? null,
       fee: feeInPresentment,
