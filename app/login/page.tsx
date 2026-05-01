@@ -24,8 +24,8 @@ function LoginForm() {
       });
       if (res.ok) {
         const data = await res.json();
-        router.push(data.status === "pending" ? "/pending" : from);
-        router.refresh();
+        const dest = data.status === "pending" ? "/pending" : from;
+        window.location.href = dest;
       } else {
         setError("Invalid credentials. Please try again.");
       }
