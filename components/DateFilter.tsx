@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import { useSearchParams, usePathname } from "next/navigation";
 import { useCallback } from "react";
 import type { Period } from "@/lib/date-range";
 
@@ -19,30 +19,29 @@ const PRESETS: { key: Period; label: string }[] = [
 ];
 
 export default function DateFilter() {
-  const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const activePeriod = (searchParams.get("period") as Period) ?? "week";
   const customFrom = searchParams.get("from") ?? "";
   const customTo = searchParams.get("to") ?? "";
 
-  const setParams = useCallback(
+  const navigate = useCallback(
     (params: Record<string, string>) => {
       const next = new URLSearchParams(searchParams.toString());
       Object.entries(params).forEach(([k, v]) => {
         if (v) next.set(k, v);
         else next.delete(k);
       });
-      router.push(`${pathname}?${next.toString()}`);
+      window.location.href = `${pathname}?${next.toString()}`;
     },
-    [router, pathname, searchParams]
+    [pathname, searchParams]
   );
 
   function selectPreset(period: Period) {
     if (period === "custom") {
-      setParams({ period: "custom", from: customFrom, to: customTo });
+      navigate({ period: "custom", from: customFrom, to: customTo });
     } else {
-      setParams({ period, from: "", to: "" });
+      navigate({ period, from: "", to: "" });
     }
   }
 
@@ -64,7 +63,7 @@ export default function DateFilter() {
             type="date"
             value={customFrom}
             onChange={(e) =>
-              setParams({ period: "custom", from: e.target.value, to: customTo })
+              navigate({ period: "custom", from: e.target.value, to: customTo })
             }
             style={{
               borderRadius: 8, border: "1px solid var(--rule)", padding: "5px 10px",
@@ -78,7 +77,7 @@ export default function DateFilter() {
             type="date"
             value={customTo}
             onChange={(e) =>
-              setParams({ period: "custom", from: customFrom, to: e.target.value })
+              navigate({ period: "custom", from: customFrom, to: e.target.value })
             }
             style={{
               borderRadius: 8, border: "1px solid var(--rule)", padding: "5px 10px",

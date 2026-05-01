@@ -1,14 +1,9 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-
 export default function LogoutButton({ compact = false }: { compact?: boolean }) {
-  const router = useRouter();
-
   async function handleLogout() {
     await fetch("/api/auth", { method: "DELETE" });
-    router.push("/login");
-    router.refresh();
+    window.location.href = "/login";
   }
 
   if (compact) {
