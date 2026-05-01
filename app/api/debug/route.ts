@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { put } from "@vercel/blob";
 import { requireSuperAdminApi } from "@/lib/api-auth";
 
 export const dynamic = "force-dynamic";
@@ -25,7 +24,7 @@ export async function GET() {
     expenseBlobUrl: getBlobUrl("data/expenses.json"),
   };
 
-  // Try to read cash blob directly
+  // Read cash blob — report what's there, no test write
   const cashUrl = getBlobUrl("data/cash-buyins.json");
   if (cashUrl) {
     try {
@@ -34,30 +33,12 @@ export async function GET() {
       if (res.ok) {
         const data = await res.json();
         result.cashEntryCount = Array.isArray(data) ? data.length : "not an array";
-        result.cashFirstEntry = Array.isArray(data) ? data[0] : null;
+        result.cashEntries = Array.isArray(data) ? data : null;
       }
     } catch (err) {
       result.cashFetchError = String(err);
     }
-
-    // Test write
-    try {
-      await put("data/cash-buyins.json", JSON.stringify([{ _test: true, ts: Date.now() }]), {
-        access: "public",
-        contentType: "application/json",
-        addRandomSuffix: false,
-        allowOverwrite: true,
-      });
-      result.testWriteOk = true;
-
-      // Read back immediately
-      const res2 = await fetch(cashUrl, { cache: "no-store" });
-      result.testReadBackStatus = res2.status;
-      result.testReadBackOk = res2.ok;
-    } catch (err) {
-      result.testWriteError = String(err);
-    }
   }
 
-  return NextResponse.json(result);
+  return NextResponse.json(result, null, 2);
 }
