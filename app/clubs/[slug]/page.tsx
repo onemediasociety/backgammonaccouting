@@ -8,8 +8,7 @@ import { getExpensesForClub } from "@/lib/expenses-store";
 import { getSplitForClub } from "@/lib/splits-store";
 import { getSession } from "@/lib/get-session";
 import TransactionTable from "@/components/TransactionTable";
-import CashTable from "@/components/CashTable";
-import AddCashForm from "@/components/AddCashForm";
+import CashSection from "@/components/CashSection";
 import AddExpenseForm from "@/components/AddExpenseForm";
 import ExpenseTable from "@/components/ExpenseTable";
 import DateFilter from "@/components/DateFilter";
@@ -272,10 +271,7 @@ export default async function ClubPage({
       {/* Cash — instant, no Stripe needed */}
       <section style={{ marginBottom: 36 }}>
         <h2 className="bs-heading" style={{ fontSize: 19, marginBottom: 14 }}>Cash Buy-ins</h2>
-        <AddCashForm clubSlug={club.slug} currency={club.currency} />
-        <div style={{ marginTop: 16 }}>
-          <CashTable entries={cashEntries} currency={club.currency} />
-        </div>
+        <CashSection initialEntries={cashEntries} clubSlug={club.slug} currency={club.currency} />
       </section>
 
       {/* Expenses — instant, no Stripe needed */}
