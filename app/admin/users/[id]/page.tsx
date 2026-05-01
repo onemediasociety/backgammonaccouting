@@ -22,8 +22,7 @@ export default function EditUserPage() {
       .then((r) => r.json())
       .then((u: SafeUser) => {
         setUser(u);
-        const u2 = u as SafeUser & { recipientName?: string };
-        setForm({ username: u.username, password: "", clubSlugs: u.clubSlugs, status: (u as SafeUser & { status?: string }).status as "active" | "pending" ?? "active", recipientName: u2.recipientName ?? "" });
+        setForm({ username: u.username, password: "", clubSlugs: u.clubSlugs, status: u.status ?? "active", recipientName: u.recipientName ?? "" });
       })
       .catch(() => setError("Failed to load user."))
       .finally(() => setLoading(false));

@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 export default async function AdminSettingsPage() {
   await requireSuperAdmin();
   const users = getAllUsers();
-  const pendingUsers = users.filter((u) => (u as typeof u & { status?: string }).status === "pending");
+  const pendingUsers = users.filter((u) => u.status === "pending");
   const allClubs = getAllClubs();
   const extraSlugs = new Set(getExtraClubs().map((c) => c.slug));
   const venues = getVenueMappings();
@@ -70,7 +70,7 @@ export default async function AdminSettingsPage() {
               </div>
             ) : (
               users.map((user) => {
-                const isPending = (user as typeof user & { status?: string }).status === "pending";
+                const isPending = user.status === "pending";
                 return (
                 <div key={user.id} style={{ padding: "12px 16px", borderBottom: "1px solid var(--rule)", display: "flex", alignItems: "center", gap: 10, background: isPending ? "rgba(184,144,66,0.03)" : undefined }}>
                   <div className="bs-avatar" style={{ width: 30, height: 30, fontSize: 11, flexShrink: 0 }}>

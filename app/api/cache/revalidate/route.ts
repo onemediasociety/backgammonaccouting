@@ -6,6 +6,6 @@ export async function POST() {
   const auth = await requireSuperAdminApi();
   if (auth instanceof NextResponse) return auth;
 
-  revalidateTag("stripe-data", "max");
+  revalidateTag("stripe-data", "default");
   return NextResponse.json({ ok: true, revalidated: true });
 }
