@@ -206,7 +206,7 @@ function SuperAdminView() {
         const cashCents = cashByClub[c.slug]?.cents ?? 0;
         const feeCents = fees[c.slug] ?? 0;
         const cashEvents = (cashByClub[c.slug]?.events ?? []).sort((a, b) => a.date.localeCompare(b.date));
-        return { slug: c.slug, city: c.city, flag: c.flag, currency: c.currency, stripeCents, cashCents, feeCents, netCents: stripeCents + cashCents - feeCents, cashEvents };
+        return { slug: c.slug, city: c.city, flag: c.flag, currency: c.currency, stripeCents, cashCents, feeCents, netCents: (stripeCents - feeCents) + cashCents, cashEvents };
       }).filter((c) => c.stripeCents > 0 || c.cashCents > 0);
 
       setClubs(breakdowns);
