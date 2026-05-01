@@ -48,6 +48,7 @@ export default function ProfilePage() {
   const [error, setError] = useState("");
   const [splitSaving, setSplitSaving] = useState<string>("");
   const [splitSaved, setSplitSaved] = useState<string>("");
+  const [users, setUsers] = useState<{ id: string; username: string; recipientName?: string }[]>([]);
 
   const [bank, setBank] = useState<BankDetails>({
     accountHolderName: "",
@@ -63,12 +64,14 @@ export default function ProfilePage() {
       fetch("/api/payouts").then((r) => r.json()),
       fetch("/api/admin/splits").then((r) => r.json()),
       fetch("/api/admin/clubs").then((r) => r.json()),
-    ]).then(([p, h, s, c]: [UserProfile, ProcessedPayout[], ClubSplit[], { slug: string; city: string; flag: string }[]]) => {
+      fetch("/api/admin/users").then((r) => r.ok ? r.json() : []),
+    ]).then(([p, h, s, c, u]: [UserProfile, ProcessedPayout[], ClubSplit[], { slug: string; city: string; flag: string }[], { id: string; username: string; recipientName?: string }[]]) => {
       setProfile(p);
       if (p.bankDetails) setBank(p.bankDetails);
       setPayouts(h);
       setSplits(s);
       setClubs(c);
+      setUsers(Array.isArray(u) ? u : []);
     }).catch(() => setError("Failed to load profile."))
       .finally(() => setLoading(false));
   }, []);
@@ -290,20 +293,30 @@ export default function ProfilePage() {
                     </div>
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    {split.recipients.map((r) => (
-                      <div key={r.name} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <span style={{ flex: 1, fontSize: 13, color: "var(--ink)" }}>{r.name}</span>
-                        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                          <input
-                            type="number" min={0} max={100}
-                            value={r.pct}
-                            onChange={(e) => updateSplitPct(club.slug, r.name, Number(e.target.value))}
-                            style={{ width: 56, padding: "4px 8px", borderRadius: 7, border: "1px solid var(--rule)", background: "var(--paper)", color: "var(--ink)", fontSize: 12, fontFamily: "var(--font-dm-mono, monospace)", textAlign: "center", outline: "none" }}
-                          />
-                          <span style={{ fontSize: 11, color: "var(--ink-3)" }}>%</span>
+                    {split.recipients.map((r) => {
+                      const linkedUser = users.find((u) => u.recipientName === r.name);
+                      return (
+                        <div key={r.name} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          <div style={{ flex: 1 }}>
+                            <span style={{ fontSize: 13, color: "var(--ink)" }}>{r.name}</span>
+                            {linkedUser && (
+                              <span className="bs-mono" style={{ fontSize: 9, color: "var(--ink-3)", marginLeft: 8, letterSpacing: "0.06em" }}>
+                                @{linkedUser.username}
+                              </span>
+                            )}
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                            <input
+                              type="number" min={0} max={100}
+                              value={r.pct}
+                              onChange={(e) => updateSplitPct(club.slug, r.name, Number(e.target.value))}
+                              style={{ width: 56, padding: "4px 8px", borderRadius: 7, border: "1px solid var(--rule)", background: "var(--paper)", color: "var(--ink)", fontSize: 12, fontFamily: "var(--font-dm-mono, monospace)", textAlign: "center", outline: "none" }}
+                            />
+                            <span style={{ fontSize: 11, color: "var(--ink-3)" }}>%</span>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               );

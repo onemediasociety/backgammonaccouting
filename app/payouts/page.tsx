@@ -65,6 +65,10 @@ function MyEarningsView({ profile, payouts }: { profile: UserProfile; payouts: P
 
   return (
     <div>
+      <div style={{ marginBottom: 20 }}>
+        <p style={{ fontSize: 15, fontWeight: 600, color: "var(--ink)", marginBottom: 2 }}>{profile.recipientName}</p>
+        <p className="bs-mono" style={{ fontSize: 10, color: "var(--ink-3)", letterSpacing: "0.08em" }}>{profile.username}</p>
+      </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 24 }}>
         <div className="bs-card" style={{ padding: "16px 20px" }}>
           <p className="bs-label" style={{ marginBottom: 5 }}>Total Earned</p>
@@ -137,6 +141,8 @@ function MyEarningsView({ profile, payouts }: { profile: UserProfile; payouts: P
 }
 
 // ── Super Admin: full management view ─────────────────────────────────────────
+interface AdminUser { id: string; username: string; recipientName?: string; }
+
 function SuperAdminView() {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
@@ -144,6 +150,7 @@ function SuperAdminView() {
   const [clubs, setClubs] = useState<ClubBreakdown[]>([]);
   const [splits, setSplits] = useState<ClubSplit[]>([]);
   const [history, setHistory] = useState<ProcessedPayout[]>([]);
+  const [users, setUsers] = useState<AdminUser[]>([]);
   const [loadingCalc, setLoadingCalc] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState("");
@@ -154,6 +161,7 @@ function SuperAdminView() {
   useEffect(() => {
     fetch("/api/payouts").then((r) => r.json()).then(setHistory).catch(() => {});
     fetch("/api/admin/splits").then((r) => r.json()).then(setSplits).catch(() => {});
+    fetch("/api/admin/users").then((r) => r.ok ? r.json() : []).then((u) => setUsers(Array.isArray(u) ? u : [])).catch(() => {});
   }, []);
 
   const calculate = useCallback(async () => {
@@ -402,13 +410,23 @@ function SuperAdminView() {
                                 </tr>
                               </thead>
                               <tbody>
-                                {clubEntries.map((e, i) => (
-                                  <tr key={i}>
-                                    <td style={{ padding: "7px 10px", color: "var(--ink)", borderBottom: "1px solid var(--rule)" }}>{e.recipientName}</td>
-                                    <td className="bs-mono" style={{ padding: "7px 10px", textAlign: "right", color: "var(--ink-3)", borderBottom: "1px solid var(--rule)" }}>{e.pct}%</td>
-                                    <td className="bs-mono" style={{ padding: "7px 10px", textAlign: "right", fontWeight: 700, color: "var(--ink)", borderBottom: "1px solid var(--rule)" }}>{fmt(e.amountCents, e.currency)}</td>
-                                  </tr>
-                                ))}
+                                {clubEntries.map((e, i) => {
+                                  const linkedUser = users.find((u) => u.recipientName === e.recipientName);
+                                  return (
+                                    <tr key={i}>
+                                      <td style={{ padding: "7px 10px", color: "var(--ink)", borderBottom: "1px solid var(--rule)" }}>
+                                        <span>{e.recipientName}</span>
+                                        {linkedUser && (
+                                          <span className="bs-mono" style={{ fontSize: 9, color: "var(--ink-3)", marginLeft: 8, letterSpacing: "0.06em" }}>
+                                            @{linkedUser.username}
+                                          </span>
+                                        )}
+                                      </td>
+                                      <td className="bs-mono" style={{ padding: "7px 10px", textAlign: "right", color: "var(--ink-3)", borderBottom: "1px solid var(--rule)" }}>{e.pct}%</td>
+                                      <td className="bs-mono" style={{ padding: "7px 10px", textAlign: "right", fontWeight: 700, color: "var(--ink)", borderBottom: "1px solid var(--rule)" }}>{fmt(e.amountCents, e.currency)}</td>
+                                    </tr>
+                                  );
+                                })}
                               </tbody>
                             </table>
                           </>
@@ -465,7 +483,10 @@ function SuperAdminView() {
                       return (
                         <div key={name} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderRadius: 8, background: "var(--paper-2)", flexWrap: "wrap", gap: 8 }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                            <span style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)" }}>{name}</span>
+                            <div>
+                              <span style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)" }}>{name}</span>
+                              {(() => { const u = users.find((u) => u.recipientName === name); return u ? <span className="bs-mono" style={{ fontSize: 9, color: "var(--ink-3)", marginLeft: 8, letterSpacing: "0.06em" }}>@{u.username}</span> : null; })()}
+                            </div>
                             <span className="bs-mono" style={{ fontSize: 13, color: "var(--ink)" }}>{fmt(total, currency)}</span>
                             {transferred ? (
                               <span style={{ fontSize: 10, fontFamily: "var(--font-dm-mono, monospace)", padding: "2px 8px", borderRadius: 20, background: "rgba(31,77,58,0.1)", color: "var(--bs-green, #1f4d3a)", border: "1px solid rgba(31,77,58,0.2)" }}>Transferred ✓</span>
@@ -526,7 +547,11 @@ export default function PayoutsPage() {
       <div style={{ marginBottom: 28 }}>
         <h1 className="bs-heading" style={{ fontSize: 28, marginBottom: 3 }}>Payouts</h1>
         <p className="bs-mono" style={{ fontSize: 10, color: "var(--ink-3)", letterSpacing: "0.1em", textTransform: "uppercase" }}>
-          Monthly earnings distribution
+          {!loading && profile
+            ? profile.role === "super_admin"
+              ? `${profile.username} · monthly earnings distribution`
+              : `${profile.recipientName ?? profile.username} · monthly earnings distribution`
+            : "Monthly earnings distribution"}
         </p>
       </div>
 
