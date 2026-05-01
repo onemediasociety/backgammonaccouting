@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { useRouter } from "next/navigation";
 import { EXPENSE_CATEGORIES, type ExpenseCategory } from "@/lib/expense-categories";
 
 interface Props {
@@ -35,7 +34,6 @@ type ReceiptState =
   | { status: "ok"; extractedAmount: number | null; url: string };
 
 export default function AddExpenseForm({ clubSlug: defaultSlug, currency = "usd" }: Props) {
-  const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -157,11 +155,7 @@ export default function AddExpenseForm({ clubSlug: defaultSlug, currency = "usd"
         setError(data.error ?? `Error ${res.status}`);
         return;
       }
-      setForm({ date: new Date().toISOString().slice(0, 10), category: "Venue", description: "", amount: "", notes: "" });
-      setReceipt({ status: "none" });
-      if (fileRef.current) fileRef.current.value = "";
-      setOpen(false);
-      router.refresh();
+      window.location.reload();
     } catch {
       setError("Network error — please try again.");
     } finally {

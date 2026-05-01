@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { formatAmount } from "@/lib/clubs";
 import type { Expense } from "@/lib/expenses-store";
 
@@ -21,6 +21,8 @@ const CATEGORY_COLORS: Record<string, { bg: string; color: string }> = {
 
 export default function ExpenseTable({ entries, currency }: Props) {
   const [list, setList] = useState<Expense[]>(entries);
+
+  useEffect(() => { setList(entries); }, [entries]);
 
   async function handleDelete(id: string) {
     if (!confirm("Remove this expense?")) return;

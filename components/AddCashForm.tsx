@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 
 interface Props {
   clubSlug: string;
@@ -9,7 +8,6 @@ interface Props {
 }
 
 export default function AddCashForm({ clubSlug, currency }: Props) {
-  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
@@ -42,15 +40,7 @@ export default function AddCashForm({ clubSlug, currency }: Props) {
         }),
       });
       if (!res.ok) throw new Error("Failed to save");
-      setForm({
-        date: new Date().toISOString().slice(0, 10),
-        event: "",
-        playerCount: "",
-        buyInAmount: "",
-        notes: "",
-      });
-      setOpen(false);
-      router.refresh();
+      window.location.reload();
     } finally {
       setSaving(false);
     }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { formatAmount } from "@/lib/clubs";
 import type { CashEntry } from "@/lib/cash-store";
 
@@ -11,6 +11,9 @@ interface Props {
 
 export default function CashTable({ entries, currency }: Props) {
   const [list, setList] = useState<CashEntry[]>(entries);
+
+  // Sync when parent re-renders with new entries (date filter change)
+  useEffect(() => { setList(entries); }, [entries]);
 
   async function handleDelete(id: string) {
     if (!confirm("Remove this cash entry?")) return;
