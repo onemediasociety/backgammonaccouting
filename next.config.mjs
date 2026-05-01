@@ -4,8 +4,8 @@ const nextConfig = {
   // Navigating between pages reuses the cached render instead of re-fetching Stripe.
   experimental: {
     staleTimes: {
-      dynamic: 120,
-      static: 300,
+      dynamic: 1800,
+      static: 1800,
     },
   },
   outputFileTracingIncludes: {
