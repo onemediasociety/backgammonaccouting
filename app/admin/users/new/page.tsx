@@ -1,12 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { CLUBS } from "@/lib/clubs";
 
 export default function NewUserPage() {
-  const router = useRouter();
   const [form, setForm] = useState({ username: "", password: "", clubSlugs: [] as string[] });
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -36,8 +34,7 @@ export default function NewUserPage() {
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? "Failed to create user."); return; }
-      router.push("/admin/users");
-      router.refresh();
+      window.location.href = "/admin/users";
     } finally {
       setSaving(false);
     }

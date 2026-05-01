@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 const inputStyle: React.CSSProperties = {
@@ -18,7 +17,6 @@ const labelStyle: React.CSSProperties = {
 };
 
 export default function RegisterPage() {
-  const router = useRouter();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -39,8 +37,7 @@ export default function RegisterPage() {
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? "Registration failed."); return; }
-      router.push("/pending");
-      router.refresh();
+      window.location.href = "/pending";
     } catch {
       setError("Something went wrong. Please try again.");
     } finally {

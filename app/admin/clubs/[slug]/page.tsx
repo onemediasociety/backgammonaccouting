@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 interface DynamicClub {
   slug: string;
@@ -16,7 +16,6 @@ interface DynamicClub {
 const CURRENCIES = ["usd", "eur", "gbp", "cad", "chf", "aud", "jpy", "mxn", "brl", "aed"];
 
 export default function EditClubPage() {
-  const router = useRouter();
   const params = useParams();
   const slug = params.slug as string;
 
@@ -57,8 +56,7 @@ export default function EditClubPage() {
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? "Failed to update club."); return; }
-      router.push("/admin");
-      router.refresh();
+      window.location.href = "/admin";
     } finally {
       setSaving(false);
     }
@@ -71,8 +69,7 @@ export default function EditClubPage() {
       const res = await fetch(`/api/admin/clubs/${slug}`, { method: "DELETE" });
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? "Failed to delete."); return; }
-      router.push("/admin");
-      router.refresh();
+      window.location.href = "/admin";
     } finally {
       setDeleting(false);
     }

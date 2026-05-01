@@ -1,13 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 const CURRENCIES = ["usd", "eur", "gbp", "cad", "chf", "aud", "jpy", "mxn", "brl", "aed"];
 
 export default function NewClubPage() {
-  const router = useRouter();
   const [form, setForm] = useState({ slug: "", name: "", city: "", country: "", currency: "usd", flag: "🎲", ticketPrice: "" });
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -31,8 +29,7 @@ export default function NewClubPage() {
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? "Failed to create club."); return; }
-      router.push("/admin");
-      router.refresh();
+      window.location.href = "/admin";
     } finally {
       setSaving(false);
     }

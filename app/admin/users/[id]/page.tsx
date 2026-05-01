@@ -1,13 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import { CLUBS } from "@/lib/clubs";
 import type { SafeUser } from "@/lib/users-store";
 
 export default function EditUserPage() {
-  const router = useRouter();
   const params = useParams();
   const id = params.id as string;
 
@@ -49,8 +48,7 @@ export default function EditUserPage() {
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? "Failed to update user."); return; }
-      router.push("/admin/users");
-      router.refresh();
+      window.location.href = "/admin/users";
     } finally {
       setSaving(false);
     }
