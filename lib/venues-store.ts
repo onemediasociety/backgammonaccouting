@@ -25,7 +25,9 @@ function readStore(): VenueMapping[] {
 }
 
 function writeStore(venues: VenueMapping[]): void {
-  fs.writeFileSync(TMP_FILE, JSON.stringify(venues, null, 2));
+  const json = JSON.stringify(venues, null, 2);
+  fs.writeFileSync(TMP_FILE, json);
+  try { fs.writeFileSync(SEED_FILE, json); } catch { /* read-only on some deployments */ }
 }
 
 export function getVenueMappings(): VenueMapping[] {

@@ -68,7 +68,7 @@ const DESCRIPTION_KEYWORDS: Array<{ slug: string; keywords: string[] }> = [
   { slug: "montreal", keywords: ["MONTREAL"] },
   { slug: "paris",    keywords: ["PARIS"] },
   { slug: "lisbon",   keywords: ["LISBON"] },
-  { slug: "dc",       keywords: ["WASHINGTON", "D.C."] },
+  { slug: "dc",       keywords: ["WASHINGTON", "D.C.", " DC", "VERA"] },
   { slug: "hollywood", keywords: ["HOLLYWOOD"] },
 ];
 
