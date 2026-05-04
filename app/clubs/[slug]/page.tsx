@@ -87,7 +87,7 @@ async function StripeData({
   const stripeTotal = succeededPayments.reduce((s, p) => s + p.amount, 0);
   const stripeCount = succeededPayments.length;
   const grossProfit = stripeTotal + cashTotal;
-  const netIncome = grossProfit - stripeFees;
+  const netIncome = grossProfit - stripeFees - expenseTotal;
 
   // For non-USD clubs: show implied exchange rate from actual fee data
   let feeRateNote: string | null = null;
@@ -109,7 +109,7 @@ async function StripeData({
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12, marginBottom: 24 }}>
         <Kpi label="Stripe Fees" value={feesAvailable ? `(${formatAmount(stripeFees, currency)})` : "—"} color="burgundy" sub={feesAvailable ? `deducted from net${feeRateNote ? ` · ${feeRateNote}` : ""}` : "unavailable"} />
-        <Kpi label="Tracked Expenses" value={expenseTotal > 0 ? formatAmount(expenseTotal, currency) : "—"} color="burgundy" sub="not included in net" />
+        <Kpi label="Tracked Expenses" value={expenseTotal > 0 ? formatAmount(expenseTotal, currency) : "—"} color="burgundy" sub={expenseTotal > 0 ? "deducted from net revenue" : "none recorded"} />
       </div>
 
       {/* Net profit banner */}
@@ -119,7 +119,7 @@ async function StripeData({
         border: "none",
       }}>
         <p className="bs-label" style={{ color: "rgba(255,255,255,0.6)", marginBottom: 6 }}>
-          Net Profit {feesAvailable ? "(Gross − Stripe Fees)" : "(Gross, fees unavailable)"}
+          Net Revenue {feesAvailable ? "(Gross − Stripe Fees − Expenses)" : "(Gross − Expenses, fees unavailable)"}
         </p>
         <p className="bs-mono" style={{ fontSize: 28, fontWeight: 700, color: "#fff" }}>
           {formatAmount(netIncome, currency)}
@@ -173,7 +173,7 @@ async function StripeData({
             })}
           </div>
           <p style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 10 }}>
-            Based on net profit of {formatAmount(netIncome, currency)} (Stripe + Cash − Stripe Fees).
+            Based on net revenue of {formatAmount(netIncome, currency)} (Stripe + Cash − Stripe Fees − Expenses).
             {session?.role === "super_admin" && (
               <Link href="/admin/splits" style={{ color: "var(--brass)", marginLeft: 8, textDecoration: "none" }}>
                 Edit splits →
