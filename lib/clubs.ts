@@ -3,7 +3,9 @@ export interface Club {
   name: string;
   city: string;
   country: string;
-  currency: string;
+  currency: string;          // reporting currency (cash, expenses, totals)
+  stripePaymentCurrency?: string; // if Stripe charges are in a different currency
+  stripeToClubRate?: number; // multiply Stripe amount by this to get club currency
   flag: string;
   color: string;
   accentBg: string;
@@ -126,6 +128,8 @@ export const CLUBS: Club[] = [
     city: "Morocco",
     country: "MA",
     currency: "mad",
+    stripePaymentCurrency: "eur",
+    stripeToClubRate: 11,   // approx EUR→MAD; update if rate drifts significantly
     flag: "🇲🇦",
     color: "red",
     accentBg: "bg-red-50",

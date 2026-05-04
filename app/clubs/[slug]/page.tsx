@@ -83,15 +83,22 @@ async function StripeData({
     feesAvailable = true;
   } catch { /* fees unavailable */ }
 
+  const club = getClub(slug)!;
+  const stripeRate = club.stripeToClubRate ?? 1; // conversion factor from Stripe currency to club currency
+  const stripeCurrency = club.stripePaymentCurrency ?? currency;
+  const isCrossCurrency = !!club.stripePaymentCurrency && club.stripePaymentCurrency !== currency;
+
   const succeededPayments = stripePayments?.filter((p) => p.status === "succeeded") ?? [];
-  const stripeTotal = succeededPayments.reduce((s, p) => s + p.amount, 0);
+  const stripeTotalNative = succeededPayments.reduce((s, p) => s + p.amount, 0); // in Stripe payment currency
+  const stripeTotal = Math.round(stripeTotalNative * stripeRate); // in club currency
+  const stripeFeeConverted = Math.round(stripeFees * stripeRate); // fees also in club currency
   const stripeCount = succeededPayments.length;
   const grossProfit = stripeTotal + cashTotal;
-  const netIncome = grossProfit - stripeFees - expenseTotal;
+  const netIncome = grossProfit - stripeFeeConverted - expenseTotal;
 
-  // For non-USD clubs: show implied exchange rate from actual fee data
+  // Exchange rate note (only for same-currency clubs using fee data)
   let feeRateNote: string | null = null;
-  if (currency !== "usd" && feesAvailable && stripeFees > 0) {
+  if (!isCrossCurrency && currency !== "usd" && feesAvailable && stripeFees > 0) {
     const totalFeeUsd = succeededPayments.reduce((s, p) => s + p.feeUsd, 0);
     if (totalFeeUsd > 0) {
       const localPerUsd = stripeFees / totalFeeUsd;
@@ -103,7 +110,7 @@ async function StripeData({
     <>
       {/* KPI strip */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 12 }}>
-        <Kpi label="Stripe Revenue" value={formatAmount(stripeTotal, currency)} sub={`${stripeCount} txns`} />
+        <Kpi label="Stripe Revenue" value={formatAmount(stripeTotal, currency)} sub={isCrossCurrency ? `${stripeCount} txns · orig. ${formatAmount(stripeTotalNative, stripeCurrency)}` : `${stripeCount} txns`} />
         <Kpi label="Cash Buy-ins" value={formatAmount(cashTotal, currency)} />
         <Kpi label="Gross Profit" value={formatAmount(grossProfit, currency)} />
       </div>
