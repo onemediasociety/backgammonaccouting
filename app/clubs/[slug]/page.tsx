@@ -150,8 +150,17 @@ async function StripeData({
               const isGlobal = r.name === "Global";
               const isAdmin = !isGlobal;
               const splitAmount = Math.round(netIncome * r.pct / 100);
-              const totalAmount = splitAmount + (r.flatFeeCents ?? 0);
-              const hasFlatFee = (r.flatFeeCents ?? 0) > 0;
+              const flatFee = r.flatFeeCents ?? 0;
+              const expensesReimbursed = expenses
+                .filter((e) => e.paidBy && e.paidBy.toLowerCase() === r.name.toLowerCase())
+                .reduce((s, e) => s + e.amountCents, 0);
+              const totalAmount = splitAmount + flatFee + expensesReimbursed;
+              const hasFlatFee = flatFee > 0;
+              const hasReimbursement = expensesReimbursed > 0;
+              const parts: string[] = [];
+              if (hasFlatFee || hasReimbursement) parts.push(`${formatAmount(splitAmount, currency)} split`);
+              if (hasFlatFee) parts.push(`${formatAmount(flatFee, currency)} flat fee`);
+              if (hasReimbursement) parts.push(`${formatAmount(expensesReimbursed, currency)} exp. reimbursed`);
               return (
                 <div key={i} className="bs-card" style={{
                   padding: "18px 22px",
@@ -170,12 +179,12 @@ async function StripeData({
                   }}>
                     {formatAmount(totalAmount, currency)}
                   </p>
-                  {hasFlatFee && (
+                  {parts.length > 0 && (
                     <p className="bs-mono" style={{
                       fontSize: 10, marginTop: 4,
                       color: isAdmin && r.pct > 0 ? "rgba(255,255,255,0.55)" : "var(--ink-3)",
                     }}>
-                      {formatAmount(splitAmount, currency)} split + {formatAmount(r.flatFeeCents!, currency)} flat fee
+                      {parts.join(" + ")}
                     </p>
                   )}
                 </div>
@@ -184,6 +193,7 @@ async function StripeData({
           </div>
           <p style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 10 }}>
             Based on net revenue of {formatAmount(netIncome, currency)} (Stripe + Cash − Stripe Fees − Expenses).
+            Expense reimbursements are added back to each person&apos;s total.
             {session?.role === "super_admin" && (
               <Link href="/admin/splits" style={{ color: "var(--brass)", marginLeft: 8, textDecoration: "none" }}>
                 Edit splits →
