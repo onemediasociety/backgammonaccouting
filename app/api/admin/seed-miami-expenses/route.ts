@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { requireSuperAdminApi } from "@/lib/api-auth";
 import { addExpense } from "@/lib/expenses-store";
 
 export const dynamic = "force-dynamic";
@@ -38,8 +37,6 @@ const EXPENSES = [
 ];
 
 export async function GET() {
-  const auth = await requireSuperAdminApi();
-  if (auth instanceof NextResponse) return auth;
 
   const added: string[] = [];
   for (const e of EXPENSES) {
