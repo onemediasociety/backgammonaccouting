@@ -121,6 +121,18 @@ export const CLUBS: Club[] = [
     matchFn: (amount, currency) => currency === "usd" && amount > 0 && amount % 2700 === 0,
   },
   {
+    slug: "morocco",
+    name: "Morocco Backgammon Club",
+    city: "Morocco",
+    country: "MA",
+    currency: "mad",
+    flag: "🇲🇦",
+    color: "red",
+    accentBg: "bg-red-50",
+    accentText: "text-red-700",
+    matchFn: (_amount, currency) => currency === "mad",
+  },
+  {
     slug: "special",
     name: "Special Events",
     city: "Various",

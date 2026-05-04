@@ -7,5 +7,6 @@
   { "clubSlug": "dc",       "recipients": [{ "name": "Hugo Partouche", "pct": 50 }, { "name": "Admin", "pct": 50 }] },
   { "clubSlug": "special",  "recipients": [{ "name": "Hugo Partouche", "pct": 100 }] },
   { "clubSlug": "lisbon",   "recipients": [{ "name": "Hugo Partouche", "pct": 50 }, { "name": "Admin", "pct": 50 }] },
-  { "clubSlug": "hollywood","recipients": [{ "name": "Hugo Partouche", "pct": 50 }, { "name": "Admin", "pct": 50 }] }
+  { "clubSlug": "hollywood","recipients": [{ "name": "Hugo Partouche", "pct": 50 }, { "name": "Admin", "pct": 50 }] },
+  { "clubSlug": "morocco",  "recipients": [{ "name": "Hugo Partouche", "pct": 50 }, { "name": "Admin", "pct": 50 }] }
 ]
