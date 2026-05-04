@@ -5,7 +5,7 @@ import { getAllSplits, upsertSplit } from "@/lib/splits-store";
 export async function GET() {
   const auth = await requireSuperAdminApi();
   if (auth instanceof NextResponse) return auth;
-  return NextResponse.json(getAllSplits());
+  return NextResponse.json(await getAllSplits());
 }
 
 export async function PUT(req: NextRequest) {
@@ -18,7 +18,7 @@ export async function PUT(req: NextRequest) {
   }
 
   try {
-    const split = upsertSplit(clubSlug, recipients);
+    const split = await upsertSplit(clubSlug, recipients);
     return NextResponse.json(split);
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Failed to update split";

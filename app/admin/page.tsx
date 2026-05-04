@@ -5,6 +5,7 @@ import { getAllClubs } from "@/lib/clubs-server";
 import { getExtraClubs } from "@/lib/clubs-store";
 import { getVenueMappings } from "@/lib/venues-store";
 import VenueManager from "@/components/VenueManager";
+import SplitsEditor from "@/components/SplitsEditor";
 
 export const dynamic = "force-dynamic";
 
@@ -159,6 +160,17 @@ export default async function AdminSettingsPage() {
         <div className="bs-card" style={{ overflow: "hidden", maxWidth: 560 }}>
           <VenueManager initial={venues} clubs={clubOptions} />
         </div>
+      </section>
+
+      {/* Revenue Splits */}
+      <section style={{ marginTop: 28 }}>
+        <div style={{ marginBottom: 12 }}>
+          <h2 className="bs-heading" style={{ fontSize: 18, marginBottom: 3 }}>Revenue Splits</h2>
+          <p style={{ fontSize: 12, color: "var(--ink-3)", margin: 0 }}>
+            Configure how each club&apos;s net profit is divided. Names appear on payout statements. Percentages must total 100. Changes are saved permanently to cloud storage.
+          </p>
+        </div>
+        <SplitsEditor />
       </section>
     </div>
   );
