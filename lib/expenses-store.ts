@@ -16,6 +16,7 @@ export interface Expense {
   amountCents: number;
   currency: string;
   notes: string;
+  paidBy?: string;
   receiptUrl?: string;
   createdAt: string;
 }

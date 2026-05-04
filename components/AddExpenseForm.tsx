@@ -45,6 +45,7 @@ export default function AddExpenseForm({ clubSlug: defaultSlug, currency = "usd"
     category: "Venue" as ExpenseCategory,
     description: "",
     amount: "",
+    paidBy: "",
     notes: "",
   });
 
@@ -147,6 +148,7 @@ export default function AddExpenseForm({ clubSlug: defaultSlug, currency = "usd"
           description: form.description,
           amountCents,
           currency,
+          paidBy: form.paidBy,
           notes: form.notes,
           receiptUrl: receipt.status === "ok" ? receipt.url : undefined,
         }),
@@ -222,6 +224,9 @@ export default function AddExpenseForm({ clubSlug: defaultSlug, currency = "usd"
             }}
             style={inputStyle}
           />
+        </Field>
+        <Field label="Paid By">
+          <input type="text" required placeholder="Hugo, City Admin…" value={form.paidBy} onChange={(e) => update("paidBy", e.target.value)} style={inputStyle} />
         </Field>
         <Field label="Notes (optional)">
           <input type="text" placeholder="Additional details" value={form.notes} onChange={(e) => update("notes", e.target.value)} style={inputStyle} />

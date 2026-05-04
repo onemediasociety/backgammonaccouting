@@ -51,6 +51,7 @@ export default function ExpenseTable({ entries, currency }: Props) {
             <th>Date</th>
             <th>Category</th>
             <th>Description</th>
+            <th>Paid By</th>
             <th style={{ textAlign: "right" }}>Amount</th>
             <th />
           </tr>
@@ -79,6 +80,9 @@ export default function ExpenseTable({ entries, currency }: Props) {
                     </a>
                   )}
                 </td>
+                <td className="bs-mono" style={{ fontSize: 12, color: "var(--ink-2)" }}>
+                  {e.paidBy || <span style={{ color: "var(--ink-3)", fontStyle: "italic" }}>—</span>}
+                </td>
                 <td className="bs-amount bs-amount-negative" style={{ textAlign: "right", fontSize: 13, fontWeight: 600 }}>
                   {formatAmount(e.amountCents, e.currency)}
                 </td>
@@ -98,7 +102,7 @@ export default function ExpenseTable({ entries, currency }: Props) {
         </tbody>
         <tfoot>
           <tr style={{ borderTop: "2px solid var(--rule)" }}>
-            <td colSpan={3} style={{ padding: "10px 12px", textAlign: "right", fontSize: 12, color: "var(--ink-3)" }}>
+            <td colSpan={4} style={{ padding: "10px 12px", textAlign: "right", fontSize: 12, color: "var(--ink-3)" }}>
               Total Expenses
             </td>
             <td className="bs-amount bs-amount-negative" style={{ padding: "10px 12px", textAlign: "right", fontWeight: 700 }}>
