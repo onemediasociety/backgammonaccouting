@@ -3,8 +3,7 @@
 import { useState, useEffect } from "react";
 import { formatAmount } from "@/lib/clubs";
 import type { Expense } from "@/lib/expenses-store";
-import { EXPENSE_CATEGORIES } from "@/lib/expenses-store";
-import type { ExpenseCategory } from "@/lib/expenses-store";
+import { EXPENSE_CATEGORIES, type ExpenseCategory } from "@/lib/expense-categories";
 
 interface Props {
   entries: Expense[];
