@@ -4,11 +4,37 @@ import Stripe from "stripe";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req: Request) {
   const auth = await requireSuperAdminApi();
   if (auth instanceof NextResponse) return auth;
 
+  const url = new URL(req.url);
+  const piId = url.searchParams.get("id");
+
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+
+  if (piId) {
+    // Fetch a single PI with full charge expansion
+    const pi = await stripe.paymentIntents.retrieve(piId, {
+      expand: ["latest_charge"],
+    });
+    const charge = typeof pi.latest_charge === "object" ? pi.latest_charge as Stripe.Charge : null;
+    const raw = pi as unknown as Record<string, unknown>;
+    return NextResponse.json({
+      pi_id: pi.id,
+      pi_description: pi.description,
+      pi_payment_link: raw.payment_link ?? null,
+      pi_metadata: pi.metadata,
+      charge_id: charge?.id ?? null,
+      charge_description: charge?.description ?? null,
+      charge_metadata: charge?.metadata ?? null,
+      charge_payment_link: (charge as unknown as Record<string, unknown> | null)?.payment_link ?? null,
+      currency: pi.currency,
+      amount: pi.amount,
+      status: pi.status,
+      created: new Date(pi.created * 1000).toISOString(),
+    });
+  }
 
   const { data } = await stripe.paymentIntents.list({
     limit: 20,
@@ -17,17 +43,18 @@ export async function GET() {
 
   const results = data.map((pi) => {
     const charge = typeof pi.latest_charge === "object" ? pi.latest_charge as Stripe.Charge : null;
+    const raw = pi as unknown as Record<string, unknown>;
     return {
       pi_id: pi.id,
       pi_description: pi.description,
+      pi_payment_link: raw.payment_link ?? null,
       charge_id: charge?.id ?? null,
       charge_description: charge?.description ?? null,
+      charge_payment_link: (charge as unknown as Record<string, unknown> | null)?.payment_link ?? null,
       currency: pi.currency,
       amount: pi.amount,
       status: pi.status,
       created: new Date(pi.created * 1000).toISOString(),
-      charge_metadata: charge?.metadata ?? null,
-      pi_metadata: pi.metadata,
     };
   });
 
