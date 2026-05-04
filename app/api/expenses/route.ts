@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { addExpense, getAllExpenses } from "@/lib/expenses-store";
+import { addExpense, getAllExpenses, getExpensesForClub } from "@/lib/expenses-store";
 
 export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams;
   const from = sp.get("from") ?? undefined;
   const to = sp.get("to") ?? undefined;
-  return NextResponse.json(await getAllExpenses(from, to));
+  const club = sp.get("club") ?? undefined;
+  const data = club
+    ? await getExpensesForClub(club, from, to)
+    : await getAllExpenses(from, to);
+  return NextResponse.json(data);
 }
 
 export async function POST(req: NextRequest) {

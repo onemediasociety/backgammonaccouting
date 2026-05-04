@@ -40,6 +40,7 @@ interface ClubBreakdown {
   stripeCents: number;
   cashCents: number;
   feeCents: number;
+  expenseCents: number;
   netCents: number;
   cashEvents: CashEvent[];
 }
@@ -173,11 +174,12 @@ function SuperAdminView() {
       const lastDay = new Date(year, month, 0).getDate();
       const to = `${year}-${String(month).padStart(2, "0")}-${lastDay}`;
 
-      const [paymentsRes, cashRes, feesRes, clubsRes] = await Promise.all([
+      const [paymentsRes, cashRes, feesRes, clubsRes, expensesRes] = await Promise.all([
         fetch(`/api/stripe?from=${from}&to=${to}`),
         fetch(`/api/cash?from=${from}&to=${to}`),
         fetch(`/api/stripe/fees?from=${from}&to=${to}`),
         fetch("/api/admin/clubs"),
+        fetch(`/api/expenses?from=${from}&to=${to}`),
       ]);
 
       const payments: { clubSlug: string; amount: number; currency: string; status: string }[] =
@@ -187,6 +189,8 @@ function SuperAdminView() {
       const fees: Record<string, number> = feesRes.ok ? await feesRes.json() : {};
       const clubList: { slug: string; city: string; flag: string; currency: string }[] =
         clubsRes.ok ? await clubsRes.json() : [];
+      const expensesList: { clubSlug: string; amountCents: number }[] =
+        expensesRes.ok ? await expensesRes.json() : [];
 
       const stripeByClub: Record<string, number> = {};
       for (const p of payments) {
@@ -201,12 +205,18 @@ function SuperAdminView() {
         cashByClub[c.clubSlug].events.push({ id: c.id, date: c.date, event: c.event, playerCount: c.playerCount, buyInAmount: c.buyInAmount, totalAmount: c.totalAmount });
       }
 
+      const expensesByClub: Record<string, number> = {};
+      for (const e of expensesList) {
+        expensesByClub[e.clubSlug] = (expensesByClub[e.clubSlug] ?? 0) + e.amountCents;
+      }
+
       const breakdowns: ClubBreakdown[] = clubList.map((c) => {
         const stripeCents = stripeByClub[c.slug] ?? 0;
         const cashCents = cashByClub[c.slug]?.cents ?? 0;
         const feeCents = fees[c.slug] ?? 0;
+        const expenseCents = expensesByClub[c.slug] ?? 0;
         const cashEvents = (cashByClub[c.slug]?.events ?? []).sort((a, b) => a.date.localeCompare(b.date));
-        return { slug: c.slug, city: c.city, flag: c.flag, currency: c.currency, stripeCents, cashCents, feeCents, netCents: (stripeCents - feeCents) + cashCents, cashEvents };
+        return { slug: c.slug, city: c.city, flag: c.flag, currency: c.currency, stripeCents, cashCents, feeCents, expenseCents, netCents: (stripeCents - feeCents) + cashCents - expenseCents, cashEvents };
       }).filter((c) => c.stripeCents > 0 || c.cashCents > 0);
 
       setClubs(breakdowns);
@@ -369,6 +379,7 @@ function SuperAdminView() {
                             <Stat label="Stripe" value={fmt(club.stripeCents, club.currency)} />
                             <Stat label="Cash Buy-ins" value={fmt(club.cashCents, club.currency)} />
                             {club.feeCents > 0 && <Stat label="Stripe Fees" value={`(${fmt(club.feeCents, club.currency)})`} muted />}
+                            {club.expenseCents > 0 && <Stat label="Expenses" value={`(${fmt(club.expenseCents, club.currency)})`} muted />}
                             <Stat label="Net" value={fmt(club.netCents, club.currency)} bold />
                           </div>
                         </div>
