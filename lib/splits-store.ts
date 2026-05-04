@@ -6,6 +6,7 @@ export interface SplitRecipient {
   name: string;
   pct: number;
   email?: string;
+  flatFeeCents?: number; // flat fee paid per event, shown alongside split %
 }
 
 export interface ClubSplit {

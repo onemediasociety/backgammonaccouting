@@ -536,6 +536,8 @@ function SuperAdminView() {
                                       : 0;
                                     const net = ce.amountCents - proportionalCash;
                                     const isLast = ci === cityEntries.length - 1;
+                                    const flatFee = split.recipients.find((r) => r.name === ce.recipientName)?.flatFeeCents ?? 0;
+                                    const totalOwed = ce.amountCents + flatFee;
                                     return (
                                       <tr key={ce.recipientName}>
                                         <td style={{ padding: "7px 10px", color: "var(--ink)", borderBottom: isLast ? "none" : "1px solid var(--rule)" }}>
@@ -543,7 +545,14 @@ function SuperAdminView() {
                                           <span className="bs-mono" style={{ fontSize: 9, color: "var(--ink-3)", marginLeft: 6 }}>city</span>
                                         </td>
                                         <td className="bs-mono" style={{ padding: "7px 10px", textAlign: "right", color: "var(--ink-3)", borderBottom: isLast ? "none" : "1px solid var(--rule)" }}>{ce.pct}%</td>
-                                        <td className="bs-mono" style={{ padding: "7px 10px", textAlign: "right", color: "var(--ink-3)", borderBottom: isLast ? "none" : "1px solid var(--rule)" }}>{fmt(ce.amountCents, club.currency)}</td>
+                                        <td style={{ padding: "7px 10px", textAlign: "right", borderBottom: isLast ? "none" : "1px solid var(--rule)" }}>
+                                          <span className="bs-mono" style={{ color: "var(--ink-3)" }}>{fmt(totalOwed, club.currency)}</span>
+                                          {flatFee > 0 && (
+                                            <div className="bs-mono" style={{ fontSize: 9, color: "var(--ink-3)", marginTop: 2 }}>
+                                              {fmt(ce.amountCents, club.currency)} split + {fmt(flatFee, club.currency)} flat fee
+                                            </div>
+                                          )}
+                                        </td>
                                         <td className="bs-mono" style={{ padding: "7px 10px", textAlign: "right", color: "var(--ink-3)", borderBottom: isLast ? "none" : "1px solid var(--rule)" }}>{fmt(proportionalCash, club.currency)} cash</td>
                                         <td className="bs-mono" style={{ padding: "7px 10px", textAlign: "right", fontWeight: 700, color: net >= 0 ? "var(--bs-green, #1f4d3a)" : "var(--burgundy)", borderBottom: isLast ? "none" : "1px solid var(--rule)" }}>
                                           {net >= 0 ? `Receive ${fmt(net, club.currency)}` : `Pay back ${fmt(-net, club.currency)}`}

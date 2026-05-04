@@ -149,7 +149,9 @@ async function StripeData({
             {split.recipients.map((r, i) => {
               const isGlobal = r.name === "Global";
               const isAdmin = !isGlobal;
-              const amount = Math.round(netIncome * r.pct / 100);
+              const splitAmount = Math.round(netIncome * r.pct / 100);
+              const totalAmount = splitAmount + (r.flatFeeCents ?? 0);
+              const hasFlatFee = (r.flatFeeCents ?? 0) > 0;
               return (
                 <div key={i} className="bs-card" style={{
                   padding: "18px 22px",
@@ -166,8 +168,16 @@ async function StripeData({
                     fontSize: 22, fontWeight: 700,
                     color: isAdmin && r.pct > 0 ? "#fff" : "var(--ink)",
                   }}>
-                    {formatAmount(amount, currency)}
+                    {formatAmount(totalAmount, currency)}
                   </p>
+                  {hasFlatFee && (
+                    <p className="bs-mono" style={{
+                      fontSize: 10, marginTop: 4,
+                      color: isAdmin && r.pct > 0 ? "rgba(255,255,255,0.55)" : "var(--ink-3)",
+                    }}>
+                      {formatAmount(splitAmount, currency)} split + {formatAmount(r.flatFeeCents!, currency)} flat fee
+                    </p>
+                  )}
                 </div>
               );
             })}
