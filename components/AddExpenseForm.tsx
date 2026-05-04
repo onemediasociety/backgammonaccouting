@@ -6,6 +6,7 @@ import { EXPENSE_CATEGORIES, type ExpenseCategory } from "@/lib/expense-categori
 interface Props {
   clubSlug?: string;
   currency?: string;
+  isSuperAdmin?: boolean;
 }
 
 const inputStyle: React.CSSProperties = {
@@ -33,7 +34,7 @@ type ReceiptState =
   | { status: "mismatch"; extractedAmount: number; url: string }
   | { status: "ok"; extractedAmount: number | null; url: string };
 
-export default function AddExpenseForm({ clubSlug: defaultSlug, currency = "usd" }: Props) {
+export default function AddExpenseForm({ clubSlug: defaultSlug, currency = "usd", isSuperAdmin = false }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -111,7 +112,7 @@ export default function AddExpenseForm({ clubSlug: defaultSlug, currency = "usd"
     e.preventDefault();
     setError("");
 
-    if (receipt.status === "none") {
+    if (!isSuperAdmin && receipt.status === "none") {
       setError("Please upload a receipt or invoice before saving.");
       return;
     }
@@ -147,7 +148,7 @@ export default function AddExpenseForm({ clubSlug: defaultSlug, currency = "usd"
           amountCents,
           currency,
           notes: form.notes,
-          receiptUrl: receipt.url,
+          receiptUrl: receipt.status === "ok" ? receipt.url : undefined,
         }),
       });
       if (!res.ok) {
@@ -230,7 +231,7 @@ export default function AddExpenseForm({ clubSlug: defaultSlug, currency = "usd"
       {/* Receipt upload */}
       <div style={{ marginBottom: 16 }}>
         <label style={{ display: "block", fontSize: 10, fontFamily: "var(--font-dm-mono, monospace)", color: "var(--ink-3)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 6 }}>
-          Receipt / Invoice <span style={{ color: "var(--burgundy)" }}>*</span>
+          Receipt / Invoice {isSuperAdmin ? <span style={{ color: "var(--ink-3)", fontWeight: 400 }}>(optional)</span> : <span style={{ color: "var(--burgundy)" }}>*</span>}
         </label>
         <div style={{
           border: `1px dashed ${receiptOk ? "var(--bs-green, #1f4d3a)" : receipt.status === "mismatch" ? "var(--burgundy)" : "var(--rule)"}`,
@@ -283,13 +284,13 @@ export default function AddExpenseForm({ clubSlug: defaultSlug, currency = "usd"
       <div style={{ display: "flex", gap: 10 }}>
         <button
           type="submit"
-          disabled={saving || receipt.status === "uploading" || receipt.status === "mismatch"}
+          disabled={saving || receipt.status === "uploading" || receipt.status === "mismatch" || (!isSuperAdmin && receipt.status === "none")}
           style={{
             fontFamily: "var(--font-dm-mono, monospace)", fontSize: 11,
             padding: "8px 18px", borderRadius: 8, border: "none",
             background: receipt.status === "mismatch" ? "var(--rule)" : "var(--burgundy)",
             color: receipt.status === "mismatch" ? "var(--ink-3)" : "#fff",
-            cursor: (saving || receipt.status === "uploading" || receipt.status === "mismatch") ? "not-allowed" : "pointer",
+            cursor: (saving || receipt.status === "uploading" || receipt.status === "mismatch" || (!isSuperAdmin && receipt.status === "none")) ? "not-allowed" : "pointer",
             opacity: saving ? 0.6 : 1, fontWeight: 500,
           }}
         >

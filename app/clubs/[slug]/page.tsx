@@ -196,6 +196,7 @@ export default async function ClubPage({
 }) {
   const { slug } = await params;
   const sp = await searchParams;
+  const session = await getSession();
 
   const club = getClub(slug);
   if (!club) notFound();
@@ -288,7 +289,7 @@ export default async function ClubPage({
             </span>
           )}
         </h2>
-        <AddExpenseForm clubSlug={club.slug} currency={club.currency} />
+        <AddExpenseForm clubSlug={club.slug} currency={club.currency} isSuperAdmin={session?.role === "super_admin"} />
         <div style={{ marginTop: 16 }}>
           <ExpenseTable entries={expenses} currency={club.currency} />
         </div>
