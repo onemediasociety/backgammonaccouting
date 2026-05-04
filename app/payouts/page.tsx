@@ -32,6 +32,11 @@ interface CashEvent {
   totalAmount: number;
 }
 
+interface ExpensePayer {
+  payer: string;
+  cents: number;
+}
+
 interface ClubBreakdown {
   slug: string;
   city: string;
@@ -43,6 +48,7 @@ interface ClubBreakdown {
   expenseCents: number;
   netCents: number;
   cashEvents: CashEvent[];
+  expensesByPayer: ExpensePayer[];
 }
 
 // ── Club Admin: own earnings view ────────────────────────────────────────────
@@ -189,7 +195,7 @@ function SuperAdminView() {
       const fees: Record<string, number> = feesRes.ok ? await feesRes.json() : {};
       const clubList: { slug: string; city: string; flag: string; currency: string }[] =
         clubsRes.ok ? await clubsRes.json() : [];
-      const expensesList: { clubSlug: string; amountCents: number }[] =
+      const expensesList: { clubSlug: string; amountCents: number; paidBy?: string }[] =
         expensesRes.ok ? await expensesRes.json() : [];
 
       const stripeByClub: Record<string, number> = {};
@@ -206,8 +212,12 @@ function SuperAdminView() {
       }
 
       const expensesByClub: Record<string, number> = {};
+      const expensesPayerByClub: Record<string, Record<string, number>> = {};
       for (const e of expensesList) {
         expensesByClub[e.clubSlug] = (expensesByClub[e.clubSlug] ?? 0) + e.amountCents;
+        if (!expensesPayerByClub[e.clubSlug]) expensesPayerByClub[e.clubSlug] = {};
+        const payer = e.paidBy?.trim() || "Unknown";
+        expensesPayerByClub[e.clubSlug][payer] = (expensesPayerByClub[e.clubSlug][payer] ?? 0) + e.amountCents;
       }
 
       const breakdowns: ClubBreakdown[] = clubList.map((c) => {
@@ -216,7 +226,10 @@ function SuperAdminView() {
         const feeCents = fees[c.slug] ?? 0;
         const expenseCents = expensesByClub[c.slug] ?? 0;
         const cashEvents = (cashByClub[c.slug]?.events ?? []).sort((a, b) => a.date.localeCompare(b.date));
-        return { slug: c.slug, city: c.city, flag: c.flag, currency: c.currency, stripeCents, cashCents, feeCents, expenseCents, netCents: (stripeCents - feeCents) + cashCents - expenseCents, cashEvents };
+        const expensesByPayer = Object.entries(expensesPayerByClub[c.slug] ?? {})
+          .map(([payer, cents]) => ({ payer, cents }))
+          .sort((a, b) => b.cents - a.cents);
+        return { slug: c.slug, city: c.city, flag: c.flag, currency: c.currency, stripeCents, cashCents, feeCents, expenseCents, netCents: (stripeCents - feeCents) + cashCents - expenseCents, cashEvents, expensesByPayer };
       }).filter((c) => c.stripeCents > 0 || c.cashCents > 0);
 
       setClubs(breakdowns);
@@ -451,6 +464,97 @@ function SuperAdminView() {
                         ) : (
                           <p style={{ fontSize: 11, color: "var(--ink-3)", fontStyle: "italic" }}>No split configured for this club.</p>
                         )}
+
+                        {/* Expenses breakdown by payer */}
+                        {club.expensesByPayer.length > 0 && (
+                          <div style={{ marginTop: 16 }}>
+                            <p style={{ fontSize: 10, fontFamily: "var(--font-dm-mono, monospace)", color: "var(--ink-3)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 8 }}>Expenses by Payer</p>
+                            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                              <thead>
+                                <tr>
+                                  {["Paid By","Total Expenses"].map((h, i) => (
+                                    <th key={h} style={{ textAlign: i === 0 ? "left" : "right", padding: "5px 10px", fontFamily: "var(--font-dm-mono, monospace)", fontSize: 10, color: "var(--ink-3)", fontWeight: 400, letterSpacing: "0.06em", textTransform: "uppercase", borderBottom: "1px solid var(--rule)" }}>{h}</th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {club.expensesByPayer.map(({ payer, cents }) => (
+                                  <tr key={payer}>
+                                    <td style={{ padding: "7px 10px", color: "var(--ink)", borderBottom: "1px solid var(--rule)" }}>{payer}</td>
+                                    <td className="bs-mono" style={{ padding: "7px 10px", textAlign: "right", color: "var(--burgundy)", fontWeight: 600, borderBottom: "1px solid var(--rule)" }}>({fmt(cents, club.currency)})</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+
+                        {/* Settlement */}
+                        {split && clubEntries.length > 0 && (() => {
+                          // Global = first recipient, city = all others combined
+                          const globalEntry = clubEntries[0];
+                          const cityEntries = clubEntries.slice(1);
+                          const cityOwed = cityEntries.reduce((s, e) => s + e.amountCents, 0);
+                          const cityHasCash = club.cashCents;
+                          const netToCity = cityOwed - cityHasCash; // positive = global sends; negative = city sends to global
+
+                          if (cityEntries.length === 0) return null; // single recipient, no settlement needed
+
+                          return (
+                            <div style={{ marginTop: 16, padding: "14px 16px", borderRadius: 10, background: "var(--paper-2)", border: "1px solid var(--rule)" }}>
+                              <p style={{ fontSize: 10, fontFamily: "var(--font-dm-mono, monospace)", color: "var(--ink-3)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 10 }}>Settlement · Who Pays Whom</p>
+                              <p style={{ fontSize: 11, color: "var(--ink-3)", marginBottom: 12 }}>
+                                Cash buy-ins ({fmt(cityHasCash, club.currency)}) were collected at the event and are already with the city admin.
+                              </p>
+                              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                                <thead>
+                                  <tr>
+                                    {["Party","Owed (split)","Already Holds","Net Wire"].map((h, i) => (
+                                      <th key={h} style={{ textAlign: i === 0 ? "left" : "right", padding: "5px 10px", fontFamily: "var(--font-dm-mono, monospace)", fontSize: 10, color: "var(--ink-3)", fontWeight: 400, letterSpacing: "0.06em", textTransform: "uppercase", borderBottom: "1px solid var(--rule)" }}>{h}</th>
+                                    ))}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {/* Global row */}
+                                  <tr>
+                                    <td style={{ padding: "7px 10px", color: "var(--ink)", borderBottom: "1px solid var(--rule)" }}>
+                                      {globalEntry.recipientName}
+                                      <span className="bs-mono" style={{ fontSize: 9, color: "var(--ink-3)", marginLeft: 6 }}>global</span>
+                                    </td>
+                                    <td className="bs-mono" style={{ padding: "7px 10px", textAlign: "right", color: "var(--ink-3)", borderBottom: "1px solid var(--rule)" }}>{fmt(globalEntry.amountCents, club.currency)}</td>
+                                    <td className="bs-mono" style={{ padding: "7px 10px", textAlign: "right", color: "var(--ink-3)", borderBottom: "1px solid var(--rule)" }}>—</td>
+                                    <td className="bs-mono" style={{ padding: "7px 10px", textAlign: "right", fontWeight: 700, color: "var(--bs-green, #1f4d3a)", borderBottom: "1px solid var(--rule)" }}>
+                                      Keep {fmt(globalEntry.amountCents, club.currency)}
+                                    </td>
+                                  </tr>
+                                  {/* City row */}
+                                  <tr>
+                                    <td style={{ padding: "7px 10px", color: "var(--ink)", borderBottom: "1px solid var(--rule)" }}>
+                                      {cityEntries.length === 1 ? cityEntries[0].recipientName : `City (${cityEntries.map(e => e.recipientName).join(", ")})`}
+                                      <span className="bs-mono" style={{ fontSize: 9, color: "var(--ink-3)", marginLeft: 6 }}>city</span>
+                                    </td>
+                                    <td className="bs-mono" style={{ padding: "7px 10px", textAlign: "right", color: "var(--ink-3)", borderBottom: "1px solid var(--rule)" }}>{fmt(cityOwed, club.currency)}</td>
+                                    <td className="bs-mono" style={{ padding: "7px 10px", textAlign: "right", color: "var(--ink-3)", borderBottom: "1px solid var(--rule)" }}>{fmt(cityHasCash, club.currency)} cash</td>
+                                    <td className="bs-mono" style={{ padding: "7px 10px", textAlign: "right", fontWeight: 700, color: netToCity >= 0 ? "var(--bs-green, #1f4d3a)" : "var(--burgundy)", borderBottom: "1px solid var(--rule)" }}>
+                                      {netToCity >= 0
+                                        ? `Receive ${fmt(netToCity, club.currency)}`
+                                        : `Pay back ${fmt(-netToCity, club.currency)}`}
+                                    </td>
+                                  </tr>
+                                </tbody>
+                              </table>
+                              {netToCity >= 0 ? (
+                                <p style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 8 }}>
+                                  → Global sends <strong>{fmt(netToCity, club.currency)}</strong> to city admin from Stripe proceeds.
+                                </p>
+                              ) : (
+                                <p style={{ fontSize: 11, color: "var(--burgundy)", marginTop: 8 }}>
+                                  → City admin sends <strong>{fmt(-netToCity, club.currency)}</strong> to global (cash collected exceeds city&apos;s split).
+                                </p>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </div>
                     );
                   })}
