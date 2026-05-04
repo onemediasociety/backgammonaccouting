@@ -118,6 +118,26 @@ export async function addExpense(data: Omit<Expense, "id" | "createdAt">): Promi
   return expense;
 }
 
+export async function updateExpense(id: string, data: Partial<Omit<Expense, "id" | "createdAt" | "clubSlug">>): Promise<Expense | null> {
+  if (hasBlob()) {
+    const { blobs } = await list({ prefix: `${BLOB_PREFIX}${id}.json`, limit: 1 });
+    if (blobs.length === 0) return null;
+    const res = await fetch(blobs[0].url, { cache: "no-store" });
+    if (!res.ok) return null;
+    const existing = await res.json() as Expense;
+    const updated: Expense = { ...existing, ...data };
+    await blobWriteEntry(updated);
+    return updated;
+  } else {
+    const all = fileReadAll();
+    const idx = all.findIndex((e) => e.id === id);
+    if (idx < 0) return null;
+    all[idx] = { ...all[idx], ...data };
+    fileWriteAll(all);
+    return all[idx];
+  }
+}
+
 export async function deleteExpense(id: string): Promise<boolean> {
   if (hasBlob()) {
     return blobDeleteEntry(id);

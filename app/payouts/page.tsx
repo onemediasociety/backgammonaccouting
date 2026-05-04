@@ -491,25 +491,26 @@ function SuperAdminView() {
 
                         {/* Settlement */}
                         {split && clubEntries.length > 0 && (() => {
-                          // Global = first recipient, city = all others combined
                           const globalEntry = clubEntries[0];
                           const cityEntries = clubEntries.slice(1);
+                          if (cityEntries.length === 0) return null;
+
                           const cityOwed = cityEntries.reduce((s, e) => s + e.amountCents, 0);
                           const cityHasCash = club.cashCents;
-                          const netToCity = cityOwed - cityHasCash; // positive = global sends; negative = city sends to global
-
-                          if (cityEntries.length === 0) return null; // single recipient, no settlement needed
+                          const netToCity = cityOwed - cityHasCash;
+                          // Distribute cash proportionally among city recipients by their pct
+                          const cityTotalPct = cityEntries.reduce((s, e) => s + e.pct, 0);
 
                           return (
                             <div style={{ marginTop: 16, padding: "14px 16px", borderRadius: 10, background: "var(--paper-2)", border: "1px solid var(--rule)" }}>
                               <p style={{ fontSize: 10, fontFamily: "var(--font-dm-mono, monospace)", color: "var(--ink-3)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 10 }}>Settlement · Who Pays Whom</p>
                               <p style={{ fontSize: 11, color: "var(--ink-3)", marginBottom: 12 }}>
-                                Cash buy-ins ({fmt(cityHasCash, club.currency)}) were collected at the event and are already with the city admin.
+                                Cash buy-ins ({fmt(cityHasCash, club.currency)}) were collected at the event and are already with the city admins.
                               </p>
                               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
                                 <thead>
                                   <tr>
-                                    {["Party","Owed (split)","Already Holds","Net Wire"].map((h, i) => (
+                                    {["Person","Split","Owed","Cash Held","Net Wire"].map((h, i) => (
                                       <th key={h} style={{ textAlign: i === 0 ? "left" : "right", padding: "5px 10px", fontFamily: "var(--font-dm-mono, monospace)", fontSize: 10, color: "var(--ink-3)", fontWeight: 400, letterSpacing: "0.06em", textTransform: "uppercase", borderBottom: "1px solid var(--rule)" }}>{h}</th>
                                     ))}
                                   </tr>
@@ -521,37 +522,42 @@ function SuperAdminView() {
                                       {globalEntry.recipientName}
                                       <span className="bs-mono" style={{ fontSize: 9, color: "var(--ink-3)", marginLeft: 6 }}>global</span>
                                     </td>
+                                    <td className="bs-mono" style={{ padding: "7px 10px", textAlign: "right", color: "var(--ink-3)", borderBottom: "1px solid var(--rule)" }}>{globalEntry.pct}%</td>
                                     <td className="bs-mono" style={{ padding: "7px 10px", textAlign: "right", color: "var(--ink-3)", borderBottom: "1px solid var(--rule)" }}>{fmt(globalEntry.amountCents, club.currency)}</td>
-                                    <td className="bs-mono" style={{ padding: "7px 10px", textAlign: "right", color: "var(--ink-3)", borderBottom: "1px solid var(--rule)" }}>—</td>
+                                    <td className="bs-mono" style={{ padding: "7px 10px", textAlign: "right", color: "var(--ink-3)", borderBottom: "1px solid var(--rule)" }}>— (Stripe)</td>
                                     <td className="bs-mono" style={{ padding: "7px 10px", textAlign: "right", fontWeight: 700, color: "var(--bs-green, #1f4d3a)", borderBottom: "1px solid var(--rule)" }}>
                                       Keep {fmt(globalEntry.amountCents, club.currency)}
                                     </td>
                                   </tr>
-                                  {/* City row */}
-                                  <tr>
-                                    <td style={{ padding: "7px 10px", color: "var(--ink)", borderBottom: "1px solid var(--rule)" }}>
-                                      {cityEntries.length === 1 ? cityEntries[0].recipientName : `City (${cityEntries.map(e => e.recipientName).join(", ")})`}
-                                      <span className="bs-mono" style={{ fontSize: 9, color: "var(--ink-3)", marginLeft: 6 }}>city</span>
-                                    </td>
-                                    <td className="bs-mono" style={{ padding: "7px 10px", textAlign: "right", color: "var(--ink-3)", borderBottom: "1px solid var(--rule)" }}>{fmt(cityOwed, club.currency)}</td>
-                                    <td className="bs-mono" style={{ padding: "7px 10px", textAlign: "right", color: "var(--ink-3)", borderBottom: "1px solid var(--rule)" }}>{fmt(cityHasCash, club.currency)} cash</td>
-                                    <td className="bs-mono" style={{ padding: "7px 10px", textAlign: "right", fontWeight: 700, color: netToCity >= 0 ? "var(--bs-green, #1f4d3a)" : "var(--burgundy)", borderBottom: "1px solid var(--rule)" }}>
-                                      {netToCity >= 0
-                                        ? `Receive ${fmt(netToCity, club.currency)}`
-                                        : `Pay back ${fmt(-netToCity, club.currency)}`}
-                                    </td>
-                                  </tr>
+                                  {/* One row per city recipient */}
+                                  {cityEntries.map((ce, ci) => {
+                                    const proportionalCash = cityTotalPct > 0
+                                      ? Math.round(cityHasCash * ce.pct / cityTotalPct)
+                                      : 0;
+                                    const net = ce.amountCents - proportionalCash;
+                                    const isLast = ci === cityEntries.length - 1;
+                                    return (
+                                      <tr key={ce.recipientName}>
+                                        <td style={{ padding: "7px 10px", color: "var(--ink)", borderBottom: isLast ? "none" : "1px solid var(--rule)" }}>
+                                          {ce.recipientName}
+                                          <span className="bs-mono" style={{ fontSize: 9, color: "var(--ink-3)", marginLeft: 6 }}>city</span>
+                                        </td>
+                                        <td className="bs-mono" style={{ padding: "7px 10px", textAlign: "right", color: "var(--ink-3)", borderBottom: isLast ? "none" : "1px solid var(--rule)" }}>{ce.pct}%</td>
+                                        <td className="bs-mono" style={{ padding: "7px 10px", textAlign: "right", color: "var(--ink-3)", borderBottom: isLast ? "none" : "1px solid var(--rule)" }}>{fmt(ce.amountCents, club.currency)}</td>
+                                        <td className="bs-mono" style={{ padding: "7px 10px", textAlign: "right", color: "var(--ink-3)", borderBottom: isLast ? "none" : "1px solid var(--rule)" }}>{fmt(proportionalCash, club.currency)} cash</td>
+                                        <td className="bs-mono" style={{ padding: "7px 10px", textAlign: "right", fontWeight: 700, color: net >= 0 ? "var(--bs-green, #1f4d3a)" : "var(--burgundy)", borderBottom: isLast ? "none" : "1px solid var(--rule)" }}>
+                                          {net >= 0 ? `Receive ${fmt(net, club.currency)}` : `Pay back ${fmt(-net, club.currency)}`}
+                                        </td>
+                                      </tr>
+                                    );
+                                  })}
                                 </tbody>
                               </table>
-                              {netToCity >= 0 ? (
-                                <p style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 8 }}>
-                                  → Global sends <strong>{fmt(netToCity, club.currency)}</strong> to city admin from Stripe proceeds.
-                                </p>
-                              ) : (
-                                <p style={{ fontSize: 11, color: "var(--burgundy)", marginTop: 8 }}>
-                                  → City admin sends <strong>{fmt(-netToCity, club.currency)}</strong> to global (cash collected exceeds city&apos;s split).
-                                </p>
-                              )}
+                              <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--rule)", fontSize: 11, color: netToCity >= 0 ? "var(--ink-3)" : "var(--burgundy)" }}>
+                                {netToCity >= 0
+                                  ? <>→ Global sends <strong>{fmt(netToCity, club.currency)}</strong> total to city from Stripe proceeds.</>
+                                  : <>→ City admins send <strong>{fmt(-netToCity, club.currency)}</strong> total to global (cash collected exceeds city&apos;s split).</>}
+                              </div>
                             </div>
                           );
                         })()}
