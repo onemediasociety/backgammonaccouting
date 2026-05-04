@@ -45,7 +45,12 @@ export default function TransactionTable({ payments, currency }: Props) {
           </thead>
           <tbody>
             {visible.map((p) => (
-              <tr key={p.id}>
+              <tr
+                key={p.id}
+                onClick={() => p.receiptUrl && window.open(p.receiptUrl, "_blank", "noopener")}
+                style={{ cursor: p.receiptUrl ? "pointer" : undefined }}
+                title={p.receiptUrl ? "Open Stripe receipt" : undefined}
+              >
                 <td className="bs-mono" style={{ fontSize: 12, whiteSpace: "nowrap" }}>
                   {new Date(p.created * 1000).toLocaleDateString("en-US", {
                     year: "numeric", month: "short", day: "numeric",
@@ -64,13 +69,18 @@ export default function TransactionTable({ payments, currency }: Props) {
                 </td>
                 <td>
                   <span style={{
-                    display: "inline-block",
+                    display: "inline-flex", alignItems: "center", gap: 5,
                     padding: "2px 8px", borderRadius: 20,
                     fontFamily: "var(--font-dm-mono, monospace)", fontSize: 10,
                     background: p.status === "succeeded" ? "rgba(31,77,58,0.1)" : "rgba(0,0,0,0.05)",
                     color: p.status === "succeeded" ? "var(--bs-green, #1f4d3a)" : "var(--ink-3)",
                   }}>
                     {p.status}
+                    {p.receiptUrl && (
+                      <svg width="9" height="9" viewBox="0 0 9 9" fill="none" style={{ opacity: 0.5 }}>
+                        <path d="M1.5 7.5l6-6M7.5 7.5V1.5H1.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    )}
                   </span>
                 </td>
               </tr>
