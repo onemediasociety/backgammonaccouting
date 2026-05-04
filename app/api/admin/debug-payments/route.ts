@@ -10,28 +10,26 @@ export async function GET() {
 
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
-  const results: object[] = [];
-
-  for await (const pi of stripe.paymentIntents.list({
-    limit: 50,
+  const { data } = await stripe.paymentIntents.list({
+    limit: 20,
     expand: ["data.latest_charge"],
-  })) {
-    const charge = pi.latest_charge as Stripe.Charge | null;
-    if (!charge || typeof charge === "string") continue;
+  });
 
-    results.push({
+  const results = data.map((pi) => {
+    const charge = typeof pi.latest_charge === "object" ? pi.latest_charge as Stripe.Charge : null;
+    return {
       pi_id: pi.id,
       pi_description: pi.description,
-      charge_id: charge.id,
-      charge_description: charge.description,
+      charge_id: charge?.id ?? null,
+      charge_description: charge?.description ?? null,
       currency: pi.currency,
       amount: pi.amount,
       status: pi.status,
       created: new Date(pi.created * 1000).toISOString(),
-      charge_metadata: charge.metadata,
+      charge_metadata: charge?.metadata ?? null,
       pi_metadata: pi.metadata,
-    });
-  }
+    };
+  });
 
   return NextResponse.json(results);
 }
