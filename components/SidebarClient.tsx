@@ -187,7 +187,7 @@ export default function SidebarClient({ clubs, username, role, isSuper }: Props)
             )}
           </div>
         )}
-        {isSuper && (
+        {username && (
           <button
             title="Refresh Stripe data"
             onClick={async () => {
