@@ -101,6 +101,17 @@ export async function getSplitForClub(slug: string): Promise<ClubSplit | undefin
   return all.find((s) => s.clubSlug === slug);
 }
 
+// Force-write all splits from the seed file to Blob, overwriting any stale data.
+export async function syncSplitsFromSeed(): Promise<ClubSplit[]> {
+  const fromFile = fileReadAll();
+  if (hasBlob()) {
+    await Promise.all(fromFile.map((s) => blobWrite(s)));
+  } else {
+    fileWriteAll(fromFile);
+  }
+  return fromFile;
+}
+
 export async function upsertSplit(clubSlug: string, recipients: SplitRecipient[]): Promise<ClubSplit> {
   const total = recipients.reduce((s, r) => s + r.pct, 0);
   if (Math.round(total) !== 100) throw new Error("Recipient percentages must add up to 100");
