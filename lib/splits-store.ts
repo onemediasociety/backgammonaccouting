@@ -84,7 +84,16 @@ function fileWriteAll(splits: ClubSplit[]): void {
 // ── Public API ────────────────────────────────────────────────────────────────
 
 export async function getAllSplits(): Promise<ClubSplit[]> {
-  return hasBlob() ? blobReadAll() : fileReadAll();
+  if (!hasBlob()) return fileReadAll();
+  const blobs = await blobReadAll();
+  if (blobs.length > 0) return blobs;
+  // Blob is empty — auto-migrate from seed file
+  const fromFile = fileReadAll();
+  if (fromFile.length > 0) {
+    await Promise.all(fromFile.map((s) => blobWrite(s)));
+    return fromFile;
+  }
+  return [];
 }
 
 export async function getSplitForClub(slug: string): Promise<ClubSplit | undefined> {
