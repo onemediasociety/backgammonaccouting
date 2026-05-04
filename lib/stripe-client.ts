@@ -1,7 +1,18 @@
+import fs from "fs";
+import path from "path";
 import { unstable_cache } from "next/cache";
 import Stripe from "stripe";
 import { classifyPayment, CLUBS, type Club } from "./clubs";
 import { getVenueMappings } from "./venues-store";
+
+// Manual PI → club overrides for payments that can't be classified automatically
+function getPiOverrides(): Record<string, string> {
+  try {
+    const file = path.join(process.cwd(), "data", "pi-overrides.json");
+    const raw = JSON.parse(fs.readFileSync(file, "utf-8")) as { piId: string; clubSlug: string }[];
+    return Object.fromEntries(raw.map((r) => [r.piId, r.clubSlug]));
+  } catch { return {}; }
+}
 
 let stripeInstance: Stripe | null = null;
 
@@ -98,7 +109,12 @@ function getClubSlug(
   description: string | null,
   metadata?: Record<string, string> | null,
   paymentLinkId?: string | null,
+  piId?: string | null,
 ): string {
+  if (piId) {
+    const override = getPiOverrides()[piId];
+    if (override) return override;
+  }
   if (paymentLinkId) {
     const mapped = getPaymentLinkMap()[paymentLinkId];
     if (mapped) return mapped;
@@ -149,10 +165,10 @@ async function _fetchAllPaymentsRaw(
       clubSlug: getClubSlug(
         pi.amount, pi.currency, description,
         pi.metadata as Record<string, string> | null,
-        // Stripe auto-sets payment_link on the charge metadata for payment link purchases
         (charge?.metadata?.payment_link as string | undefined)
           ?? ((pi as unknown as Record<string, unknown>).payment_link as string | null)
-          ?? null
+          ?? null,
+        pi.id,
       ),
       customerName: charge?.billing_details?.name ?? null,
       customerEmail: charge?.billing_details?.email ?? null,
