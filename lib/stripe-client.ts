@@ -50,7 +50,7 @@ export interface CustomerRecord {
 
 // Keywords to match against the Stripe charge description (case-insensitive).
 const DESCRIPTION_KEYWORDS: Array<{ slug: string; keywords: string[] }> = [
-  { slug: "dc",        keywords: ["WASHINGTON", "D.C.", "DC", "VERA"] },
+  { slug: "dc",        keywords: ["WASHINGTON", "D.C.", "VERA", "YOUR REGISTRATION\nDC", "REGISTRATION\nDC"] },
   { slug: "nyc",       keywords: ["NYC", "NEW YORK"] },
   { slug: "miami",     keywords: ["MIAMI"] },
   { slug: "geneva",    keywords: ["GENEVA"] },
