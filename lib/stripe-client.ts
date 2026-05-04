@@ -58,6 +58,7 @@ const DESCRIPTION_KEYWORDS: Array<{ slug: string; keywords: string[] }> = [
   { slug: "paris",     keywords: ["PARIS"] },
   { slug: "lisbon",    keywords: ["LISBON"] },
   { slug: "hollywood", keywords: ["HOLLYWOOD"] },
+  { slug: "morocco",   keywords: ["MOROCCO", "CASABLANCA", "MAROC"] },
 ];
 
 function classifyByDescription(description: string | null): string | null {
