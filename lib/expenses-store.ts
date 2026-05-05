@@ -121,7 +121,7 @@ export async function addExpense(data: Omit<Expense, "id" | "createdAt">): Promi
     all.push(expense);
     fileWriteAll(all);
   }
-  revalidateTag("expenses");
+  revalidateTag("expenses", { expire: 0 });
   return expense;
 }
 
@@ -134,7 +134,7 @@ export async function updateExpense(id: string, data: Partial<Omit<Expense, "id"
     const existing = await res.json() as Expense;
     const updated: Expense = { ...existing, ...data };
     await blobWriteEntry(updated);
-    revalidateTag("expenses");
+    revalidateTag("expenses", { expire: 0 });
     return updated;
   } else {
     const all = fileReadAll();
@@ -142,7 +142,7 @@ export async function updateExpense(id: string, data: Partial<Omit<Expense, "id"
     if (idx < 0) return null;
     all[idx] = { ...all[idx], ...data };
     fileWriteAll(all);
-    revalidateTag("expenses");
+    revalidateTag("expenses", { expire: 0 });
     return all[idx];
   }
 }
@@ -158,7 +158,7 @@ export async function deleteExpense(id: string): Promise<boolean> {
     fileWriteAll(next);
     deleted = true;
   }
-  if (deleted) revalidateTag("expenses");
+  if (deleted) revalidateTag("expenses", { expire: 0 });
   return deleted;
 }
 

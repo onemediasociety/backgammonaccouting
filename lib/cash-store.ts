@@ -129,7 +129,7 @@ export async function addCashEntry(data: Omit<CashEntry, "id" | "totalAmount" | 
     all.push(entry);
     fileWriteAll(all);
   }
-  revalidateTag("cash");
+  revalidateTag("cash", { expire: 0 });
   return entry;
 }
 
@@ -144,7 +144,7 @@ export async function deleteCashEntry(id: string): Promise<boolean> {
     fileWriteAll(next);
     deleted = true;
   }
-  if (deleted) revalidateTag("cash");
+  if (deleted) revalidateTag("cash", { expire: 0 });
   return deleted;
 }
 

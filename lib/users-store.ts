@@ -107,7 +107,7 @@ async function writeStore(users: User[]): Promise<void> {
   } else {
     fileWrite(users);
   }
-  revalidateTag("users");
+  revalidateTag("users", { expire: 0 });
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

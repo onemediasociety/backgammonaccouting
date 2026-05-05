@@ -133,6 +133,6 @@ export async function upsertSplit(clubSlug: string, recipients: SplitRecipient[]
     if (idx >= 0) all[idx] = entry; else all.push(entry);
     fileWriteAll(all);
   }
-  revalidateTag("splits");
+  revalidateTag("splits", { expire: 0 });
   return entry;
 }
