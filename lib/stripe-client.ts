@@ -103,6 +103,19 @@ function slugFromMetadata(metadata: Record<string, string> | null | undefined): 
   return val ? val.toLowerCase() : null;
 }
 
+// DC billing addresses: state "DC" or cities in the DC metro area
+function slugFromBillingAddress(
+  billingState: string | null,
+  billingCity: string | null,
+): string | null {
+  const state = (billingState ?? "").toUpperCase().trim();
+  const city = (billingCity ?? "").toUpperCase().trim();
+  if (state === "DC" || city === "WASHINGTON" || city === "WASHINGTON DC" || city === "WASHINGTON, DC") {
+    return "dc";
+  }
+  return null;
+}
+
 async function getClubSlug(
   amount: number,
   currency: string,
@@ -110,6 +123,8 @@ async function getClubSlug(
   metadata?: Record<string, string> | null,
   paymentLinkId?: string | null,
   piId?: string | null,
+  billingState?: string | null,
+  billingCity?: string | null,
 ): Promise<string> {
   if (piId) {
     const override = getPiOverrides()[piId];
@@ -119,7 +134,15 @@ async function getClubSlug(
     const mapped = getPaymentLinkMap()[paymentLinkId];
     if (mapped) return mapped;
   }
-  return slugFromMetadata(metadata) ?? (await classifyByDescription(description)) ?? classifyPayment(amount, currency).slug;
+  const fromMeta = slugFromMetadata(metadata);
+  if (fromMeta) return fromMeta;
+  const fromDesc = await classifyByDescription(description);
+  if (fromDesc) return fromDesc;
+  // Billing address tiebreaker: used when description/metadata aren't set.
+  // DC events and NYC events both charge $26 USD — billing state disambiguates.
+  const fromBilling = slugFromBillingAddress(billingState ?? null, billingCity ?? null);
+  if (fromBilling) return fromBilling;
+  return classifyPayment(amount, currency).slug;
 }
 
 // ─── Single Stripe fetch: payments + fees in one paginated call ───────────────
@@ -169,6 +192,8 @@ async function _fetchAllPaymentsRaw(
           ?? ((pi as unknown as Record<string, unknown>).payment_link as string | null)
           ?? null,
         pi.id,
+        charge?.billing_details?.address?.state ?? null,
+        charge?.billing_details?.address?.city ?? null,
       ),
       customerName: charge?.billing_details?.name ?? null,
       customerEmail: charge?.billing_details?.email ?? null,
