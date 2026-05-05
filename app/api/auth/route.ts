@@ -6,10 +6,8 @@ export async function POST(req: NextRequest) {
   const { username = "", password = "" } = await req.json();
 
   let token: string;
-
   let status: "active" | "pending" = "active";
 
-  // 1. Virtual super admin — password matches SITE_PASSWORD
   const sitePassword = process.env.SITE_PASSWORD;
   if (sitePassword && password === sitePassword) {
     token = await createSession({
@@ -20,8 +18,7 @@ export async function POST(req: NextRequest) {
       status: "active",
     });
   } else {
-    // 2. Stored club admin
-    const user = verifyUserPassword(username, password);
+    const user = await verifyUserPassword(username, password);
     if (!user) {
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
     }

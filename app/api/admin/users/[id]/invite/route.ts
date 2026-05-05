@@ -10,10 +10,10 @@ export async function POST(
   if (auth instanceof NextResponse) return auth;
 
   const { id } = await params;
-  const user = getUserById(id);
+  const user = await getUserById(id);
   if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-  const { token } = createInviteToken(id);
+  const { token } = await createInviteToken(id);
 
   const origin = req.headers.get("origin") ?? process.env.NEXT_PUBLIC_SITE_URL ?? "";
   const inviteUrl = `${origin}/register?token=${token}`;

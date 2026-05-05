@@ -59,7 +59,7 @@ async function StripeData({
 }) {
   const session = await getSession();
   const split = await getSplitForClub(slug);
-  const allUsers = getAllUsers();
+  const allUsers = await getAllUsers();
   const [cashEntries, expenses] = await Promise.all([
     getCashEntriesForClub(slug, range.from ?? undefined, range.to ?? undefined),
     getExpensesForClub(slug, range.from ?? undefined, range.to ?? undefined),

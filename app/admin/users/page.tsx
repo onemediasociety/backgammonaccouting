@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 export default async function UsersPage() {
   await requireSuperAdmin();
-  const users = getAllUsers();
+  const users = await getAllUsers();
   const allClubs = getAllClubs();
 
   function clubNames(slugs: string[]): string {

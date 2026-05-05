@@ -6,7 +6,7 @@ export async function GET() {
   const auth = await requireSuperAdminApi();
   if (auth instanceof NextResponse) return auth;
 
-  return NextResponse.json(getAllUsers());
+  return NextResponse.json(await getAllUsers());
 }
 
 export async function POST(req: NextRequest) {
@@ -20,11 +20,10 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const user = createUser({ username, password, clubSlugs });
+    const user = await createUser({ username, password, clubSlugs });
     return NextResponse.json(user, { status: 201 });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Failed to create user";
-    const status = msg.includes("already taken") ? 409 : 400;
-    return NextResponse.json({ error: msg }, { status });
+    return NextResponse.json({ error: msg }, { status: msg.includes("already taken") ? 409 : 400 });
   }
 }

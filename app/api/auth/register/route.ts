@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
 
   let user;
   try {
-    user = registerUser({ username: username.trim(), password });
+    user = await registerUser({ username: username.trim(), password });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Registration failed";
     return NextResponse.json({ error: msg }, { status: msg.includes("already taken") ? 409 : 400 });

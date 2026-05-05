@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminSettingsPage() {
   await requireSuperAdmin();
-  const users = getAllUsers();
+  const users = await getAllUsers();
   const pendingUsers = users.filter((u) => u.status === "pending");
   const allClubs = getAllClubs();
   const extraSlugs = new Set(getExtraClubs().map((c) => c.slug));

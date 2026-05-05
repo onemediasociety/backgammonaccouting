@@ -5,7 +5,7 @@ export async function GET(req: NextRequest) {
   const token = new URL(req.url).searchParams.get("token");
   if (!token) return NextResponse.json({ error: "Token required" }, { status: 400 });
 
-  const user = getUserByInviteToken(token);
+  const user = await getUserByInviteToken(token);
   if (!user) return NextResponse.json({ error: "Invalid or expired invite link" }, { status: 404 });
 
   return NextResponse.json({

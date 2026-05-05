@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
 
   let user;
   try {
-    user = acceptInvite(token, password);
+    user = await acceptInvite(token, password);
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Failed to activate account";
     return NextResponse.json({ error: msg }, { status: 400 });

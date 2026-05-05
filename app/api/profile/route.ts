@@ -16,7 +16,7 @@ export async function GET(_req: NextRequest) {
     });
   }
 
-  const user = getUserById(auth.session.sub);
+  const user = await getUserById(auth.session.sub);
   if (!user) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const { passwordHash: _ph, ...safe } = user;
@@ -41,16 +41,16 @@ export async function PUT(req: NextRequest) {
   try {
     let user;
     if (bankDetails !== undefined) {
-      user = updateUserBankDetails(auth.session.sub, bankDetails ?? null);
+      user = await updateUserBankDetails(auth.session.sub, bankDetails ?? null);
     }
     if (preferredCurrency !== undefined || email !== undefined) {
-      user = updateUser(auth.session.sub, {
+      user = await updateUser(auth.session.sub, {
         ...(preferredCurrency !== undefined ? { preferredCurrency: preferredCurrency ?? null } : {}),
         ...(email !== undefined ? { email: email ?? null } : {}),
       });
     }
     if (!user) {
-      const stored = getUserById(auth.session.sub);
+      const stored = await getUserById(auth.session.sub);
       if (!stored) return NextResponse.json({ error: "Not found" }, { status: 404 });
       const { passwordHash: _ph, ...safe } = stored;
       user = safe;
