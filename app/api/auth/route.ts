@@ -26,8 +26,8 @@ export async function POST(req: NextRequest) {
     token = await createSession({
       sub: user.id,
       username: user.username,
-      role: user.role,
-      clubSlugs: user.clubSlugs,
+      role: user.role, // "super_admin" stored users get full super admin access
+      clubSlugs: user.role === "super_admin" ? [] : user.clubSlugs,
       status,
     });
   }

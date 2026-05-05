@@ -29,7 +29,7 @@ export async function PUT(
     return NextResponse.json({ error: "Cannot modify the virtual admin" }, { status: 400 });
   }
 
-  const { username, password, clubSlugs, status, recipientName } = await req.json();
+  const { username, password, clubSlugs, status, role, recipientName } = await req.json();
 
   try {
     const user = await updateUser(id, {
@@ -37,6 +37,7 @@ export async function PUT(
       password: password || undefined,
       clubSlugs: clubSlugs !== undefined ? clubSlugs : undefined,
       status: status || undefined,
+      role: role || undefined,
       recipientName: recipientName !== undefined ? (recipientName || null) : undefined,
     });
     return NextResponse.json(user);

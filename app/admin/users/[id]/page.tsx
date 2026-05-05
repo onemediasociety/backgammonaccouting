@@ -11,7 +11,7 @@ export default function EditUserPage() {
   const id = params.id as string;
 
   const [user, setUser] = useState<SafeUser | null>(null);
-  const [form, setForm] = useState({ username: "", password: "", clubSlugs: [] as string[], status: "active" as "active" | "pending", recipientName: "" });
+  const [form, setForm] = useState({ username: "", password: "", clubSlugs: [] as string[], status: "active" as "active" | "pending", role: "club_admin" as "club_admin" | "super_admin", recipientName: "" });
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -21,7 +21,7 @@ export default function EditUserPage() {
       .then((r) => r.json())
       .then((u: SafeUser) => {
         setUser(u);
-        setForm({ username: u.username, password: "", clubSlugs: u.clubSlugs, status: u.status ?? "active", recipientName: u.recipientName ?? "" });
+        setForm({ username: u.username, password: "", clubSlugs: u.clubSlugs, status: u.status ?? "active", role: (u.role as "club_admin" | "super_admin") ?? "club_admin", recipientName: u.recipientName ?? "" });
       })
       .catch(() => setError("Failed to load user."))
       .finally(() => setLoading(false));
@@ -44,7 +44,7 @@ export default function EditUserPage() {
       const res = await fetch(`/api/admin/users/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: form.username, password: form.password || undefined, clubSlugs: form.clubSlugs, status: form.status, recipientName: form.recipientName || null }),
+        body: JSON.stringify({ username: form.username, password: form.password || undefined, clubSlugs: form.clubSlugs, status: form.status, role: form.role, recipientName: form.recipientName || null }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? "Failed to update user."); return; }
@@ -120,6 +120,35 @@ export default function EditUserPage() {
               ))}
             </div>
           </div>
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ display: "block", fontSize: 10, fontFamily: "var(--font-dm-mono, monospace)", color: "var(--ink-3)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 6 }}>
+              Access Level
+            </label>
+            <div style={{ display: "flex", gap: 8 }}>
+              {([["club_admin", "Club Admin"], ["super_admin", "Super Admin"]] as const).map(([val, label]) => (
+                <button
+                  key={val}
+                  type="button"
+                  onClick={() => setForm((p) => ({ ...p, role: val }))}
+                  style={{
+                    padding: "6px 16px", borderRadius: 7, fontSize: 11,
+                    fontFamily: "var(--font-dm-mono, monospace)", cursor: "pointer",
+                    border: form.role === val ? "none" : "1px solid var(--rule)",
+                    background: form.role === val ? (val === "super_admin" ? "var(--burgundy)" : "var(--ink)") : "var(--paper)",
+                    color: form.role === val ? "#fff" : "var(--ink-3)",
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {form.role === "super_admin" && (
+              <p style={{ fontSize: 10, color: "var(--burgundy)", marginTop: 6, fontFamily: "var(--font-dm-mono, monospace)" }}>
+                Super admins have full access to all clubs, settings, and user management.
+              </p>
+            )}
+          </div>
+
           <Field label="Username">
             <input
               type="text" required value={form.username}

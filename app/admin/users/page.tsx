@@ -87,8 +87,8 @@ export default async function UsersPage() {
                     </div>
                   </td>
                   <td>
-                    <span style={{ fontSize: 10, fontFamily: "var(--font-dm-mono, monospace)", padding: "2px 8px", borderRadius: 20, background: "rgba(139,26,26,0.08)", color: "var(--burgundy)", border: "1px solid rgba(139,26,26,0.15)" }}>
-                      Club Admin
+                    <span style={{ fontSize: 10, fontFamily: "var(--font-dm-mono, monospace)", padding: "2px 8px", borderRadius: 20, background: user.role === "super_admin" ? "rgba(139,26,26,0.12)" : "rgba(139,26,26,0.08)", color: "var(--burgundy)", border: "1px solid rgba(139,26,26,0.15)" }}>
+                      {user.role === "super_admin" ? "Super Admin" : "Club Admin"}
                     </span>
                     {user.status === "pending" && (
                       <span style={{ fontSize: 10, fontFamily: "var(--font-dm-mono, monospace)", padding: "2px 8px", borderRadius: 20, background: "rgba(184,144,66,0.1)", color: "var(--brass)", border: "1px solid rgba(184,144,66,0.2)", marginLeft: 6 }}>

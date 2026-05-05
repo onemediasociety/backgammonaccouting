@@ -16,7 +16,7 @@ export interface User {
   id: string;
   username: string;
   passwordHash: string;
-  role: "club_admin";
+  role: "club_admin" | "super_admin";
   status: "active" | "pending";
   clubSlugs: string[];
   recipientName?: string;
@@ -140,6 +140,7 @@ export async function createUser(data: {
   password: string;
   clubSlugs: string[];
   status?: "active" | "pending";
+  role?: "club_admin" | "super_admin";
 }): Promise<SafeUser> {
   const users = await readStore();
   if (users.some((u) => u.username.toLowerCase() === data.username.toLowerCase())) {
@@ -150,7 +151,7 @@ export async function createUser(data: {
     id: uuidv4(),
     username: data.username,
     passwordHash: hashPassword(data.password),
-    role: "club_admin",
+    role: data.role ?? "club_admin",
     status: data.status ?? "active",
     clubSlugs: data.clubSlugs,
     createdAt: now,
@@ -172,6 +173,7 @@ export async function updateUser(
     password?: string;
     clubSlugs?: string[];
     status?: "active" | "pending";
+    role?: "club_admin" | "super_admin";
     recipientName?: string | null;
     email?: string | null;
     preferredCurrency?: string | null;
@@ -191,6 +193,7 @@ export async function updateUser(
   if (data.password) users[idx].passwordHash = hashPassword(data.password);
   if (data.clubSlugs !== undefined) users[idx].clubSlugs = data.clubSlugs;
   if (data.status !== undefined) users[idx].status = data.status;
+  if (data.role !== undefined) users[idx].role = data.role;
   if (data.recipientName !== undefined) users[idx].recipientName = data.recipientName ?? undefined;
   if (data.email !== undefined) users[idx].email = data.email ?? undefined;
   if (data.preferredCurrency !== undefined) users[idx].preferredCurrency = data.preferredCurrency ?? undefined;
