@@ -13,14 +13,14 @@ export async function POST(req: NextRequest) {
   const auth = await requireSuperAdminApi();
   if (auth instanceof NextResponse) return auth;
 
-  const { username, password, clubSlugs } = await req.json();
+  const { username, password, clubSlugs, email, role } = await req.json();
 
-  if (!username || !password || !Array.isArray(clubSlugs)) {
+  if (!username || !Array.isArray(clubSlugs)) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
 
   try {
-    const user = await createUser({ username, password, clubSlugs });
+    const user = await createUser({ username, password: password || Math.random().toString(36).slice(2) + "Bs1!", clubSlugs, email, role });
     return NextResponse.json(user, { status: 201 });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Failed to create user";

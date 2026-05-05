@@ -141,6 +141,7 @@ export async function createUser(data: {
   clubSlugs: string[];
   status?: "active" | "pending";
   role?: "club_admin" | "super_admin";
+  email?: string;
 }): Promise<SafeUser> {
   const users = await readStore();
   if (users.some((u) => u.username.toLowerCase() === data.username.toLowerCase())) {
@@ -152,8 +153,9 @@ export async function createUser(data: {
     username: data.username,
     passwordHash: hashPassword(data.password),
     role: data.role ?? "club_admin",
-    status: data.status ?? "active",
+    status: data.status ?? "pending",
     clubSlugs: data.clubSlugs,
+    email: data.email || undefined,
     createdAt: now,
     updatedAt: now,
   };
