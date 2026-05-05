@@ -442,7 +442,7 @@ function SuperAdminView() {
                               </thead>
                               <tbody>
                                 {clubEntries.map((e, i) => {
-                                  const linkedUser = users.find((u) => u.recipientName === e.recipientName);
+                                  const linkedUser = users.find((u) => u.recipientName === e.recipientName && u.clubSlugs.includes(club.slug));
                                   return (
                                     <tr key={i}>
                                       <td style={{ padding: "7px 10px", color: "var(--ink)", borderBottom: "1px solid var(--rule)" }}>
@@ -622,7 +622,7 @@ function SuperAdminView() {
                           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                             <div>
                               <span style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)" }}>{name}</span>
-                              {(() => { const u = users.find((u) => u.recipientName === name); return u ? <span className="bs-mono" style={{ fontSize: 9, color: "var(--ink-3)", marginLeft: 8, letterSpacing: "0.06em" }}>@{u.username}</span> : null; })()}
+                              {(() => { const matches = users.filter((u) => u.recipientName === name); return matches.length === 1 ? <span className="bs-mono" style={{ fontSize: 9, color: "var(--ink-3)", marginLeft: 8, letterSpacing: "0.06em" }}>@{matches[0].username}</span> : null; })()}
                             </div>
                             <span className="bs-mono" style={{ fontSize: 13, color: "var(--ink)" }}>{fmt(total, currency)}</span>
                             {transferred ? (

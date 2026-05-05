@@ -446,7 +446,7 @@ export default function ProfilePage() {
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                     {split.recipients.map((r) => {
-                      const linkedUser = users.find((u) => u.recipientName === r.name);
+                      const linkedUser = users.find((u) => u.recipientName === r.name && u.clubSlugs.includes(club.slug));
                       return (
                         <div key={r.name} style={{ display: "flex", alignItems: "center", gap: 10 }}>
                           <div style={{ flex: 1 }}>
