@@ -148,7 +148,7 @@ function MyEarningsView({ profile, payouts }: { profile: UserProfile; payouts: P
 }
 
 // ── Super Admin: full management view ─────────────────────────────────────────
-interface AdminUser { id: string; username: string; recipientName?: string; }
+interface AdminUser { id: string; username: string; recipientName?: string; clubSlugs: string[]; }
 
 function SuperAdminView() {
   const now = new Date();

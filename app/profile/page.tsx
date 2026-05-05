@@ -51,7 +51,7 @@ export default function ProfilePage() {
   const [error, setError] = useState("");
   const [splitSaving, setSplitSaving] = useState<string>("");
   const [splitSaved, setSplitSaved] = useState<string>("");
-  const [users, setUsers] = useState<{ id: string; username: string; recipientName?: string }[]>([]);
+  const [users, setUsers] = useState<{ id: string; username: string; recipientName?: string; clubSlugs: string[] }[]>([]);
 
   const [bank, setBank] = useState<BankDetails>({
     accountHolderName: "",
@@ -76,7 +76,7 @@ export default function ProfilePage() {
       fetch("/api/admin/splits").then((r) => r.json()),
       fetch("/api/admin/clubs").then((r) => r.json()),
       fetch("/api/admin/users").then((r) => r.ok ? r.json() : []),
-    ]).then(([p, h, s, c, u]: [UserProfile, ProcessedPayout[], ClubSplit[], { slug: string; city: string; flag: string }[], { id: string; username: string; recipientName?: string }[]]) => {
+    ]).then(([p, h, s, c, u]: [UserProfile, ProcessedPayout[], ClubSplit[], { slug: string; city: string; flag: string }[], { id: string; username: string; recipientName?: string; clubSlugs: string[] }[]]) => {
       setProfile(p);
       if (p.bankDetails) setBank(p.bankDetails);
       if (p.email) setEmail(p.email);
