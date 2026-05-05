@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { CLUBS } from "@/lib/clubs";
 import type { SafeUser } from "@/lib/users-store";
+import type { ClubSplit } from "@/lib/splits-store";
 
 export default function EditUserPage() {
   const params = useParams();
@@ -15,17 +16,37 @@ export default function EditUserPage() {
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [splits, setSplits] = useState<ClubSplit[]>([]);
+  const [customName, setCustomName] = useState(false);
 
   useEffect(() => {
-    fetch(`/api/admin/users/${id}`)
-      .then((r) => r.json())
-      .then((u: SafeUser) => {
+    Promise.all([
+      fetch(`/api/admin/users/${id}`).then((r) => r.json()),
+      fetch("/api/admin/splits").then((r) => r.json()),
+    ])
+      .then(([u, s]: [SafeUser, ClubSplit[]]) => {
         setUser(u);
-        setForm({ username: u.username, password: "", clubSlugs: u.clubSlugs, status: u.status ?? "active", role: (u.role as "club_admin" | "super_admin") ?? "club_admin", recipientName: u.recipientName ?? "" });
+        setSplits(Array.isArray(s) ? s : []);
+        const recip = u.recipientName ?? "";
+        setForm({ username: u.username, password: "", clubSlugs: u.clubSlugs, status: u.status ?? "active", role: (u.role as "club_admin" | "super_admin") ?? "club_admin", recipientName: recip });
+        // If existing recipientName doesn't appear in any split, enable custom mode
+        if (recip) {
+          const inSplit = s.some((split) =>
+            u.clubSlugs.includes(split.clubSlug) &&
+            split.recipients.some((r) => r.name === recip)
+          );
+          if (!inSplit) setCustomName(true);
+        }
       })
       .catch(() => setError("Failed to load user."))
       .finally(() => setLoading(false));
   }, [id]);
+
+  // Build dropdown options from splits of assigned clubs
+  const splitOptions = splits
+    .filter((s) => form.clubSlugs.includes(s.clubSlug))
+    .flatMap((s) => s.recipients.map((r) => ({ name: r.name, clubSlug: s.clubSlug })))
+    .filter((opt, i, arr) => arr.findIndex((o) => o.name === opt.name) === i); // dedupe by name
 
   function toggleClub(slug: string) {
     setForm((prev) => ({
@@ -98,46 +119,23 @@ export default function EditUserPage() {
       <form onSubmit={handleSubmit}>
         <div className="bs-card" style={{ padding: "20px", marginBottom: 16 }}>
           <div style={{ marginBottom: 16 }}>
-            <label style={{ display: "block", fontSize: 10, fontFamily: "var(--font-dm-mono, monospace)", color: "var(--ink-3)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 6 }}>
-              Account Status
-            </label>
+            <label style={labelStyle}>Account Status</label>
             <div style={{ display: "flex", gap: 8 }}>
               {(["active", "pending"] as const).map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => setForm((p) => ({ ...p, status: s }))}
-                  style={{
-                    padding: "6px 16px", borderRadius: 7, fontSize: 11,
-                    fontFamily: "var(--font-dm-mono, monospace)", cursor: "pointer",
-                    border: form.status === s ? "none" : "1px solid var(--rule)",
-                    background: form.status === s ? (s === "active" ? "var(--bs-green, #1f4d3a)" : "var(--burgundy)") : "var(--paper)",
-                    color: form.status === s ? "#fff" : "var(--ink-3)",
-                  }}
-                >
+                <button key={s} type="button" onClick={() => setForm((p) => ({ ...p, status: s }))}
+                  style={{ padding: "6px 16px", borderRadius: 7, fontSize: 11, fontFamily: "var(--font-dm-mono, monospace)", cursor: "pointer", border: form.status === s ? "none" : "1px solid var(--rule)", background: form.status === s ? (s === "active" ? "var(--bs-green, #1f4d3a)" : "var(--burgundy)") : "var(--paper)", color: form.status === s ? "#fff" : "var(--ink-3)" }}>
                   {s.charAt(0).toUpperCase() + s.slice(1)}
                 </button>
               ))}
             </div>
           </div>
+
           <div style={{ marginBottom: 16 }}>
-            <label style={{ display: "block", fontSize: 10, fontFamily: "var(--font-dm-mono, monospace)", color: "var(--ink-3)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 6 }}>
-              Access Level
-            </label>
+            <label style={labelStyle}>Access Level</label>
             <div style={{ display: "flex", gap: 8 }}>
               {([["club_admin", "Club Admin"], ["super_admin", "Super Admin"]] as const).map(([val, label]) => (
-                <button
-                  key={val}
-                  type="button"
-                  onClick={() => setForm((p) => ({ ...p, role: val }))}
-                  style={{
-                    padding: "6px 16px", borderRadius: 7, fontSize: 11,
-                    fontFamily: "var(--font-dm-mono, monospace)", cursor: "pointer",
-                    border: form.role === val ? "none" : "1px solid var(--rule)",
-                    background: form.role === val ? (val === "super_admin" ? "var(--burgundy)" : "var(--ink)") : "var(--paper)",
-                    color: form.role === val ? "#fff" : "var(--ink-3)",
-                  }}
-                >
+                <button key={val} type="button" onClick={() => setForm((p) => ({ ...p, role: val }))}
+                  style={{ padding: "6px 16px", borderRadius: 7, fontSize: 11, fontFamily: "var(--font-dm-mono, monospace)", cursor: "pointer", border: form.role === val ? "none" : "1px solid var(--rule)", background: form.role === val ? (val === "super_admin" ? "var(--burgundy)" : "var(--ink)") : "var(--paper)", color: form.role === val ? "#fff" : "var(--ink-3)" }}>
                   {label}
                 </button>
               ))}
@@ -150,34 +148,67 @@ export default function EditUserPage() {
           </div>
 
           <Field label="Username">
-            <input
-              type="text" required value={form.username}
+            <input type="text" required value={form.username}
               onChange={(e) => setForm((p) => ({ ...p, username: e.target.value }))}
-              style={inputStyle}
-            />
+              style={inputStyle} />
           </Field>
+
           <div style={{ marginTop: 16 }}>
             <Field label="New Password (leave blank to keep existing)">
-              <input
-                type="password" value={form.password}
+              <input type="password" value={form.password}
                 onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))}
-                style={inputStyle}
-                placeholder="••••••••"
-              />
+                style={inputStyle} placeholder="••••••••" />
             </Field>
           </div>
+
           <div style={{ marginTop: 16 }}>
-            <Field label="Recipient Name (links to payout split)">
-              <input
-                type="text" value={form.recipientName}
-                onChange={(e) => setForm((p) => ({ ...p, recipientName: e.target.value }))}
-                style={inputStyle}
-                placeholder="e.g. Tina — must match name in splits config"
-              />
-            </Field>
-            <p style={{ fontSize: 10, color: "var(--ink-3)", marginTop: 5, fontFamily: "var(--font-dm-mono, monospace)" }}>
-              Must exactly match the recipient name in Settings → Revenue Splits
-            </p>
+            <label style={labelStyle}>Payout Split Recipient</label>
+            {splitOptions.length > 0 && !customName ? (
+              <>
+                <select
+                  value={form.recipientName}
+                  onChange={(e) => {
+                    if (e.target.value === "__custom__") {
+                      setCustomName(true);
+                      setForm((p) => ({ ...p, recipientName: "" }));
+                    } else {
+                      setForm((p) => ({ ...p, recipientName: e.target.value }));
+                    }
+                  }}
+                  style={{ ...inputStyle, appearance: "none" }}
+                >
+                  <option value="">— not linked —</option>
+                  {splitOptions.map((opt) => {
+                    const club = CLUBS.find((c) => c.slug === opt.clubSlug);
+                    return (
+                      <option key={`${opt.clubSlug}:${opt.name}`} value={opt.name}>
+                        {opt.name}{club ? ` · ${club.flag} ${club.city}` : ""}
+                      </option>
+                    );
+                  })}
+                  <option value="__custom__">Other (type manually)…</option>
+                </select>
+                <p style={{ fontSize: 10, color: "var(--ink-3)", marginTop: 5, fontFamily: "var(--font-dm-mono, monospace)" }}>
+                  Select the matching name from the city's revenue split config.
+                </p>
+              </>
+            ) : (
+              <>
+                <input type="text" value={form.recipientName}
+                  onChange={(e) => setForm((p) => ({ ...p, recipientName: e.target.value }))}
+                  style={inputStyle}
+                  placeholder="Must match name in Settings → Revenue Splits" />
+                {splitOptions.length > 0 && (
+                  <button type="button" onClick={() => setCustomName(false)}
+                    style={{ marginTop: 5, fontSize: 10, background: "none", border: "none", color: "var(--brass)", cursor: "pointer", fontFamily: "var(--font-dm-mono, monospace)", padding: 0 }}>
+                    ← Pick from split list
+                  </button>
+                )}
+                <p style={{ fontSize: 10, color: "var(--ink-3)", marginTop: 4, fontFamily: "var(--font-dm-mono, monospace)" }}>
+                  Must exactly match the recipient name in Settings → Revenue Splits
+                </p>
+              </>
+            )}
           </div>
         </div>
 
@@ -189,12 +220,8 @@ export default function EditUserPage() {
           </div>
           {CLUBS.map((club) => (
             <label key={club.slug} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", borderBottom: "1px solid var(--rule)", cursor: "pointer" }}>
-              <input
-                type="checkbox"
-                checked={form.clubSlugs.includes(club.slug)}
-                onChange={() => toggleClub(club.slug)}
-                style={{ accentColor: "var(--brass)" }}
-              />
+              <input type="checkbox" checked={form.clubSlugs.includes(club.slug)}
+                onChange={() => toggleClub(club.slug)} style={{ accentColor: "var(--brass)" }} />
               <span style={{ fontSize: 18 }}>{club.flag}</span>
               <div>
                 <div style={{ fontSize: 13, fontWeight: 500, color: "var(--ink)" }}>{club.name}</div>
@@ -211,20 +238,10 @@ export default function EditUserPage() {
         )}
 
         <div style={{ display: "flex", gap: 10 }}>
-          <button type="submit" disabled={saving} style={{
-            fontFamily: "var(--font-dm-mono, monospace)", fontSize: 12,
-            padding: "9px 20px", borderRadius: 8, border: "none",
-            background: "var(--ink)", color: "var(--brass)", cursor: "pointer",
-            opacity: saving ? 0.6 : 1,
-          }}>
+          <button type="submit" disabled={saving} style={{ fontFamily: "var(--font-dm-mono, monospace)", fontSize: 12, padding: "9px 20px", borderRadius: 8, border: "none", background: "var(--ink)", color: "var(--brass)", cursor: "pointer", opacity: saving ? 0.6 : 1 }}>
             {saving ? "Saving…" : "Save Changes"}
           </button>
-          <Link href="/admin/users" style={{
-            fontFamily: "var(--font-dm-mono, monospace)", fontSize: 12,
-            padding: "9px 20px", borderRadius: 8,
-            border: "1px solid var(--rule)", color: "var(--ink-2)",
-            textDecoration: "none", display: "inline-flex", alignItems: "center",
-          }}>
+          <Link href="/admin/users" style={{ fontFamily: "var(--font-dm-mono, monospace)", fontSize: 12, padding: "9px 20px", borderRadius: 8, border: "1px solid var(--rule)", color: "var(--ink-2)", textDecoration: "none", display: "inline-flex", alignItems: "center" }}>
             Cancel
           </Link>
         </div>
@@ -240,12 +257,15 @@ const inputStyle: React.CSSProperties = {
   fontFamily: "inherit", outline: "none", boxSizing: "border-box",
 };
 
+const labelStyle: React.CSSProperties = {
+  display: "block", fontSize: 10, fontFamily: "var(--font-dm-mono, monospace)",
+  color: "var(--ink-3)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 6,
+};
+
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label style={{ display: "block", fontSize: 10, fontFamily: "var(--font-dm-mono, monospace)", color: "var(--ink-3)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 6 }}>
-        {label}
-      </label>
+      <label style={labelStyle}>{label}</label>
       {children}
     </div>
   );
