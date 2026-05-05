@@ -110,7 +110,7 @@ export default async function UsersPage() {
                       {user.status === "pending" && (
                         <ApproveButton userId={user.id} clubSlugs={user.clubSlugs} />
                       )}
-                      <InviteButton userId={user.id} username={user.username} />
+                      <InviteButton userId={user.id} username={user.username} email={user.email} />
                       <Link href={`/admin/users/${user.id}`} style={{
                         fontSize: 11, fontFamily: "var(--font-dm-mono, monospace)",
                         color: "var(--ink-3)", textDecoration: "none",

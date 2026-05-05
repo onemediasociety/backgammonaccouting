@@ -2,10 +2,21 @@
 
 import { useState } from "react";
 
-export default function InviteButton({ userId, username }: { userId: string; username: string }) {
+export default function InviteButton({
+  userId,
+  username,
+  email,
+}: {
+  userId: string;
+  username: string;
+  email?: string;
+}) {
   const [state, setState] = useState<"idle" | "loading" | "done">("idle");
   const [inviteUrl, setInviteUrl] = useState("");
   const [copied, setCopied] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
+  const [emailError, setEmailError] = useState("");
 
   async function generate() {
     setState("loading");
@@ -28,12 +39,22 @@ export default function InviteButton({ userId, username }: { userId: string; use
     });
   }
 
-  function mailtoLink() {
-    const subject = encodeURIComponent("Your Backgammon Society admin account is ready");
-    const body = encodeURIComponent(
-      `Hi ${username},\n\nYou've been invited to set up your Backgammon Society accounting account.\n\nClick the link below to create your password and complete your profile:\n\n${inviteUrl}\n\nThis link expires in 7 days.\n\nWelcome aboard!`
-    );
-    return `mailto:?subject=${subject}&body=${body}`;
+  async function sendEmail() {
+    if (!email) return;
+    setSending(true);
+    setEmailError("");
+    try {
+      const res = await fetch(`/api/admin/users/${userId}/send-invite-email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ inviteUrl, toEmail: email, toName: username }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setEmailError(data.error ?? "Failed to send email."); return; }
+      setEmailSent(true);
+    } finally {
+      setSending(false);
+    }
   }
 
   if (state === "idle" || state === "loading") {
@@ -61,7 +82,7 @@ export default function InviteButton({ userId, username }: { userId: string; use
       border: "1px solid var(--rule)", borderRadius: 8, minWidth: 260,
     }}>
       <p style={{ fontSize: 10, fontFamily: "var(--font-dm-mono, monospace)", color: "var(--ink-3)", marginBottom: 2 }}>
-        Invite link (expires in 7 days)
+        Invite link · expires in 7 days
       </p>
       <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
         <input
@@ -86,31 +107,48 @@ export default function InviteButton({ userId, username }: { userId: string; use
           {copied ? "Copied ✓" : "Copy"}
         </button>
       </div>
-      <div style={{ display: "flex", gap: 6 }}>
-        <a
-          href={mailtoLink()}
-          style={{
-            fontSize: 10, fontFamily: "var(--font-dm-mono, monospace)",
-            padding: "4px 10px", borderRadius: 6,
-            border: "1px solid rgba(184,144,66,0.35)",
-            color: "var(--brass)", textDecoration: "none",
-            background: "rgba(184,144,66,0.07)",
-          }}
-        >
-          Open in Email ↗
-        </a>
+
+      {email && !emailSent && (
         <button
-          onClick={() => setState("idle")}
+          onClick={sendEmail}
+          disabled={sending}
           style={{
             fontSize: 10, fontFamily: "var(--font-dm-mono, monospace)",
-            padding: "4px 10px", borderRadius: 6,
-            border: "1px solid var(--rule)", background: "none",
-            color: "var(--ink-3)", cursor: "pointer",
+            padding: "5px 10px", borderRadius: 6, border: "none",
+            background: "var(--ink)", color: "var(--brass)",
+            cursor: sending ? "wait" : "pointer", opacity: sending ? 0.6 : 1,
           }}
         >
-          Close
+          {sending ? "Sending…" : `Send to ${email}`}
         </button>
-      </div>
+      )}
+      {emailError && (
+        <p style={{ fontSize: 10, color: "var(--burgundy)", margin: 0, fontFamily: "var(--font-dm-mono, monospace)" }}>
+          {emailError}
+        </p>
+      )}
+      {emailSent && (
+        <p style={{ fontSize: 10, color: "var(--bs-green, #1f4d3a)", margin: 0, fontFamily: "var(--font-dm-mono, monospace)" }}>
+          ✓ Sent to {email}
+        </p>
+      )}
+      {!email && (
+        <p style={{ fontSize: 10, color: "var(--ink-3)", margin: 0, fontFamily: "var(--font-dm-mono, monospace)" }}>
+          No email on file — copy the link above.
+        </p>
+      )}
+
+      <button
+        onClick={() => setState("idle")}
+        style={{
+          fontSize: 10, fontFamily: "var(--font-dm-mono, monospace)",
+          padding: "4px 10px", borderRadius: 6,
+          border: "1px solid var(--rule)", background: "none",
+          color: "var(--ink-3)", cursor: "pointer", alignSelf: "flex-start",
+        }}
+      >
+        Close
+      </button>
     </div>
   );
 }
