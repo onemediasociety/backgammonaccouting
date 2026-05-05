@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
     recipientName?: string; // if omitted, sends for all recipients
   };
 
-  const payout = getPayoutById(payoutId);
+  const payout = await getPayoutById(payoutId);
   if (!payout) return NextResponse.json({ error: "Payout not found" }, { status: 404 });
 
   // Group entries by recipient

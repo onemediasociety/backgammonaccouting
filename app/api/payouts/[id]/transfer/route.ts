@@ -16,7 +16,7 @@ export async function POST(
     return NextResponse.json({ error: "recipientName required" }, { status: 400 });
   }
 
-  const payout = markTransferred(id, recipientName, note);
+  const payout = await markTransferred(id, recipientName, note);
   if (!payout) return NextResponse.json({ error: "Payout not found" }, { status: 404 });
 
   return NextResponse.json(payout);

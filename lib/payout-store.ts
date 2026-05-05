@@ -1,6 +1,8 @@
+import { v4 as uuidv4 } from "uuid";
+import { put, head } from "@vercel/blob";
+import { unstable_cache, revalidateTag } from "next/cache";
 import fs from "fs";
 import path from "path";
-import { v4 as uuidv4 } from "uuid";
 
 export interface PayoutEntry {
   clubSlug: string;
@@ -24,42 +26,71 @@ export interface ProcessedPayout {
   entries: PayoutEntry[];
 }
 
-const TMP_FILE = "/tmp/payouts.json";
+const BLOB_KEY = "payouts/all.json";
 const SEED_FILE = path.join(process.cwd(), "data", "processed-payouts.json");
 
-function readStore(): ProcessedPayout[] {
-  for (const file of [TMP_FILE, SEED_FILE]) {
-    try {
-      if (fs.existsSync(file)) {
-        const raw = fs.readFileSync(file, "utf-8");
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) return parsed as ProcessedPayout[];
-      }
-    } catch { /* try next */ }
-  }
+function hasBlob(): boolean {
+  return !!process.env.BLOB_READ_WRITE_TOKEN;
+}
+
+function readSeed(): ProcessedPayout[] {
+  try {
+    if (fs.existsSync(SEED_FILE)) {
+      const parsed = JSON.parse(fs.readFileSync(SEED_FILE, "utf-8"));
+      if (Array.isArray(parsed)) return parsed as ProcessedPayout[];
+    }
+  } catch { /* ignore */ }
   return [];
 }
 
-function writeStore(payouts: ProcessedPayout[]): void {
-  const json = JSON.stringify(payouts, null, 2);
-  fs.writeFileSync(TMP_FILE, json);
-  try { fs.writeFileSync(SEED_FILE, json); } catch { /* read-only on some deployments */ }
+async function blobRead(): Promise<ProcessedPayout[]> {
+  try {
+    const info = await head(BLOB_KEY);
+    const res = await fetch(info.url, { cache: "no-store" });
+    if (!res.ok) return readSeed();
+    const data = await res.json();
+    return Array.isArray(data) ? (data as ProcessedPayout[]) : readSeed();
+  } catch {
+    return readSeed();
+  }
 }
 
-export function getAllPayouts(): ProcessedPayout[] {
-  return readStore().sort((a, b) => b.processedAt.localeCompare(a.processedAt));
+async function blobWrite(payouts: ProcessedPayout[]): Promise<void> {
+  await put(BLOB_KEY, JSON.stringify(payouts), {
+    access: "public",
+    contentType: "application/json",
+    addRandomSuffix: false,
+    allowOverwrite: true,
+  });
+  revalidateTag("payouts", { expire: 0 } as Parameters<typeof revalidateTag>[1]);
 }
 
-export function getPayoutById(id: string): ProcessedPayout | undefined {
-  return readStore().find((p) => p.id === id);
+const getCachedPayouts = unstable_cache(blobRead, ["payouts-blob"], {
+  revalidate: 60,
+  tags: ["payouts"],
+});
+
+async function readStore(): Promise<ProcessedPayout[]> {
+  if (!hasBlob()) return readSeed();
+  return getCachedPayouts();
 }
 
-export function recordPayout(
+export async function getAllPayouts(): Promise<ProcessedPayout[]> {
+  const all = await readStore();
+  return all.sort((a, b) => b.processedAt.localeCompare(a.processedAt));
+}
+
+export async function getPayoutById(id: string): Promise<ProcessedPayout | undefined> {
+  const all = await readStore();
+  return all.find((p) => p.id === id);
+}
+
+export async function recordPayout(
   period: string,
   periodLabel: string,
   processedBy: string,
   entries: PayoutEntry[]
-): ProcessedPayout {
+): Promise<ProcessedPayout> {
   const payout: ProcessedPayout = {
     id: uuidv4(),
     period,
@@ -68,30 +99,29 @@ export function recordPayout(
     processedBy,
     entries,
   };
-  const all = readStore();
+  const all = hasBlob() ? await blobRead() : readSeed();
   all.push(payout);
-  writeStore(all);
+  if (hasBlob()) await blobWrite(all);
   return payout;
 }
 
-// Marks all entries for a recipient in a payout as transferred
-export function markTransferred(payoutId: string, recipientName: string, note?: string): ProcessedPayout | null {
-  const all = readStore();
+export async function markTransferred(payoutId: string, recipientName: string, note?: string): Promise<ProcessedPayout | null> {
+  const all = hasBlob() ? await blobRead() : readSeed();
   const idx = all.findIndex((p) => p.id === payoutId);
   if (idx < 0) return null;
   const now = new Date().toISOString();
   all[idx].entries = all[idx].entries.map((e) =>
     e.recipientName === recipientName ? { ...e, transferredAt: now, transferNote: note ?? "" } : e
   );
-  writeStore(all);
+  if (hasBlob()) await blobWrite(all);
   return all[idx];
 }
 
-// Returns YTD total paid to a recipient (by name) across all payouts in a given year
-export function getYtdForRecipient(name: string, year: number): Record<string, number> {
+export async function getYtdForRecipient(name: string, year: number): Promise<Record<string, number>> {
+  const all = await readStore();
   const prefix = String(year);
   const totals: Record<string, number> = {};
-  for (const p of readStore()) {
+  for (const p of all) {
     if (!p.period.startsWith(prefix)) continue;
     for (const e of p.entries) {
       if (e.recipientName !== name) continue;

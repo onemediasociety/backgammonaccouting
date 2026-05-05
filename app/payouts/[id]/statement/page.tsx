@@ -16,14 +16,14 @@ export default async function StatementPage({
   const { id } = await params;
   const { recipient } = await searchParams;
 
-  const payout = getPayoutById(id);
+  const payout = await getPayoutById(id);
   if (!payout || !recipient) notFound();
 
   const recipientEntries = payout.entries.filter((e) => e.recipientName === recipient);
   if (recipientEntries.length === 0) notFound();
 
   const year = parseInt(payout.period.split("-")[0]);
-  const ytd = getYtdForRecipient(recipient, year);
+  const ytd = await getYtdForRecipient(recipient, year);
 
   // Group by currency
   const totalByCurrency: Record<string, number> = {};

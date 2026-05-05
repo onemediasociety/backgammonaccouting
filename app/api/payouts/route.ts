@@ -6,7 +6,7 @@ import type { PayoutEntry } from "@/lib/payout-store";
 export async function GET() {
   const auth = await requireSuperAdminApi();
   if (auth instanceof NextResponse) return auth;
-  return NextResponse.json(getAllPayouts());
+  return NextResponse.json(await getAllPayouts());
 }
 
 export async function POST(req: NextRequest) {
@@ -23,6 +23,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
 
-  const payout = recordPayout(period, periodLabel, auth.session.username, entries);
+  const payout = await recordPayout(period, periodLabel, auth.session.username, entries);
   return NextResponse.json(payout, { status: 201 });
 }
