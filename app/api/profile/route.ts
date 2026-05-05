@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAnyAdminApi } from "@/lib/api-auth";
-import { getUserById, updateUser, updateUserBankDetails, type BankDetails } from "@/lib/users-store";
+import { getUserById, updateUser, updateUserBankDetails, hashPassword, type BankDetails } from "@/lib/users-store";
 
 export async function GET(_req: NextRequest) {
   const auth = await requireAnyAdminApi();
@@ -32,14 +32,29 @@ export async function PUT(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { bankDetails, preferredCurrency, email } = body as {
+  const { bankDetails, preferredCurrency, email, currentPassword, newPassword } = body as {
     bankDetails?: BankDetails | null;
     preferredCurrency?: string | null;
     email?: string | null;
+    currentPassword?: string;
+    newPassword?: string;
   };
 
   try {
     let user;
+
+    if (newPassword !== undefined) {
+      if (!newPassword || newPassword.length < 8) {
+        return NextResponse.json({ error: "New password must be at least 8 characters." }, { status: 400 });
+      }
+      const stored = await getUserById(auth.session.sub);
+      if (!stored) return NextResponse.json({ error: "Not found" }, { status: 404 });
+      if (currentPassword && stored.passwordHash !== hashPassword(currentPassword)) {
+        return NextResponse.json({ error: "Current password is incorrect." }, { status: 400 });
+      }
+      user = await updateUser(auth.session.sub, { password: newPassword });
+    }
+
     if (bankDetails !== undefined) {
       user = await updateUserBankDetails(auth.session.sub, bankDetails ?? null);
     }

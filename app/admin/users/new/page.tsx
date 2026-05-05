@@ -37,6 +37,7 @@ export default function NewUserPage() {
     name: "",
     username: "",
     email: "",
+    password: "",
     role: "club_admin" as "club_admin" | "super_admin",
     clubSlugs: [] as string[],
   });
@@ -86,9 +87,11 @@ export default function NewUserPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           username: form.username.trim(),
+          password: form.password.trim() || undefined,
           email: form.email.trim() || undefined,
           role: form.role,
           clubSlugs: form.clubSlugs,
+          status: form.password.trim() ? "active" : "pending",
         }),
       });
       const data = await res.json();
@@ -223,7 +226,7 @@ export default function NewUserPage() {
             Back to Users
           </Link>
           <button
-            onClick={() => { setInvite(null); setForm({ name: "", username: "", email: "", role: "club_admin", clubSlugs: [] }); }}
+            onClick={() => { setInvite(null); setForm({ name: "", username: "", email: "", password: "", role: "club_admin", clubSlugs: [] }); }}
             style={{
               fontFamily: "var(--font-dm-mono, monospace)", fontSize: 12,
               padding: "9px 20px", borderRadius: 8,
@@ -271,11 +274,20 @@ export default function NewUserPage() {
             />
           </Field>
 
-          <Field label="Email Address" hint="Used to pre-fill the invite email. Optional but recommended.">
+          <Field label="Email Address" hint="Optional — stored on the account.">
             <input
               type="email" value={form.email}
               onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
               style={inputStyle} placeholder="tina@example.com"
+            />
+          </Field>
+
+          <Field label="Temporary Password" hint="They can change it after logging in. Leave blank to use the invite-link flow instead.">
+            <input
+              type="text" value={form.password}
+              onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))}
+              style={inputStyle} placeholder="e.g. Welcome2025!"
+              autoComplete="off"
             />
           </Field>
 

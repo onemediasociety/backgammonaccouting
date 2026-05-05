@@ -64,6 +64,10 @@ export default function ProfilePage() {
   const [preferredCurrency, setPreferredCurrency] = useState("");
   const [prefSaving, setPrefSaving] = useState(false);
   const [prefSaved, setPrefSaved] = useState(false);
+  const [pwForm, setPwForm] = useState({ current: "", next: "", confirm: "" });
+  const [pwSaving, setPwSaving] = useState(false);
+  const [pwSaved, setPwSaved] = useState(false);
+  const [pwError, setPwError] = useState("");
 
   useEffect(() => {
     Promise.all([
@@ -150,6 +154,28 @@ export default function ProfilePage() {
     setPrefSaving(false);
   }
 
+  async function changePassword(e: React.FormEvent) {
+    e.preventDefault();
+    setPwError("");
+    if (pwForm.next.length < 8) { setPwError("New password must be at least 8 characters."); return; }
+    if (pwForm.next !== pwForm.confirm) { setPwError("Passwords don't match."); return; }
+    setPwSaving(true);
+    try {
+      const res = await fetch("/api/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currentPassword: pwForm.current, newPassword: pwForm.next }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setPwError(data.error ?? "Failed to update password."); return; }
+      setPwSaved(true);
+      setPwForm({ current: "", next: "", confirm: "" });
+      setTimeout(() => setPwSaved(false), 3000);
+    } finally {
+      setPwSaving(false);
+    }
+  }
+
   if (loading) {
     return (
       <div style={{ maxWidth: 560 }}>
@@ -182,6 +208,53 @@ export default function ProfilePage() {
         <h1 className="bs-heading" style={{ fontSize: 26, marginBottom: 3 }}>My Profile</h1>
         <p className="bs-mono" style={{ fontSize: 11, color: "var(--ink-3)" }}>{profile.username}</p>
       </div>
+
+      {/* Change Password */}
+      <section style={{ marginBottom: 24 }}>
+        <h2 className="bs-heading" style={{ fontSize: 17, marginBottom: 14 }}>Change Password</h2>
+        <form onSubmit={changePassword} className="bs-card" style={{ padding: "20px", display: "flex", flexDirection: "column", gap: 14 }}>
+          <div>
+            <label style={labelStyle}>Current Password</label>
+            <input
+              type="password" value={pwForm.current} required
+              onChange={(e) => setPwForm((p) => ({ ...p, current: e.target.value }))}
+              style={inputStyle} autoComplete="current-password"
+            />
+          </div>
+          <div>
+            <label style={labelStyle}>New Password</label>
+            <input
+              type="password" value={pwForm.next} required minLength={8}
+              onChange={(e) => setPwForm((p) => ({ ...p, next: e.target.value }))}
+              style={inputStyle} autoComplete="new-password" placeholder="Min. 8 characters"
+            />
+          </div>
+          <div>
+            <label style={labelStyle}>Confirm New Password</label>
+            <input
+              type="password" value={pwForm.confirm} required
+              onChange={(e) => setPwForm((p) => ({ ...p, confirm: e.target.value }))}
+              style={inputStyle} autoComplete="new-password"
+            />
+          </div>
+          {pwError && (
+            <div style={{ background: "rgba(139,26,26,0.07)", border: "1px solid rgba(139,26,26,0.2)", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "var(--burgundy)" }}>
+              {pwError}
+            </div>
+          )}
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <button type="submit" disabled={pwSaving} style={{
+              fontFamily: "var(--font-dm-mono, monospace)", fontSize: 12,
+              padding: "9px 20px", borderRadius: 8, border: "none",
+              background: "var(--ink)", color: "var(--brass)", cursor: "pointer",
+              opacity: pwSaving ? 0.6 : 1,
+            }}>
+              {pwSaving ? "Saving…" : "Update Password"}
+            </button>
+            {pwSaved && <span style={{ fontSize: 12, color: "var(--bs-green, #1f4d3a)", fontFamily: "var(--font-dm-mono, monospace)" }}>Password updated ✓</span>}
+          </div>
+        </form>
+      </section>
 
       {/* Recipient link status */}
       <div className="bs-card" style={{ padding: "16px 20px", marginBottom: 20 }}>
