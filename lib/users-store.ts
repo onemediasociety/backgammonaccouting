@@ -3,6 +3,7 @@ import path from "path";
 import crypto from "crypto";
 import { v4 as uuidv4 } from "uuid";
 import { put, list } from "@vercel/blob";
+import { unstable_cache, revalidateTag } from "next/cache";
 
 export interface BankDetails {
   accountHolderName: string;
@@ -85,9 +86,14 @@ function fileWrite(users: User[]): void {
 
 // ── Core read/write ───────────────────────────────────────────────────────────
 
+const getCachedUsers = unstable_cache(blobRead, ["users-blob"], {
+  revalidate: 60,
+  tags: ["users"],
+});
+
 async function readStore(): Promise<User[]> {
   if (!hasBlob()) return fileRead();
-  const fromBlob = await blobRead();
+  const fromBlob = await getCachedUsers();
   if (fromBlob.length > 0) return fromBlob;
   // Blob empty — migrate from seed file
   const fromFile = fileRead();
@@ -101,6 +107,7 @@ async function writeStore(users: User[]): Promise<void> {
   } else {
     fileWrite(users);
   }
+  revalidateTag("users");
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

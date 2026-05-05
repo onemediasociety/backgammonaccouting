@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
 import { put, list, del } from "@vercel/blob";
+import { unstable_cache, revalidateTag } from "next/cache";
 
 export interface CashEntry {
   id: string;
@@ -95,15 +96,22 @@ function filterByDate(entries: CashEntry[], from?: string, to?: string): CashEnt
   });
 }
 
+// ── Cached read ───────────────────────────────────────────────────────────────
+
+const getCachedCash = unstable_cache(blobReadAll, ["cash-blob"], {
+  revalidate: 60,
+  tags: ["cash"],
+});
+
 // ── Public API ────────────────────────────────────────────────────────────────
 
 export async function getAllCashEntries(from?: string, to?: string): Promise<CashEntry[]> {
-  const all = hasBlob() ? await blobReadAll() : fileReadAll();
+  const all = hasBlob() ? await getCachedCash() : fileReadAll();
   return filterByDate(all, from, to);
 }
 
 export async function getCashEntriesForClub(slug: string, from?: string, to?: string): Promise<CashEntry[]> {
-  const all = hasBlob() ? await blobReadAll() : fileReadAll();
+  const all = hasBlob() ? await getCachedCash() : fileReadAll();
   return filterByDate(all.filter((e) => e.clubSlug === slug), from, to);
 }
 
@@ -121,18 +129,23 @@ export async function addCashEntry(data: Omit<CashEntry, "id" | "totalAmount" | 
     all.push(entry);
     fileWriteAll(all);
   }
+  revalidateTag("cash");
   return entry;
 }
 
 export async function deleteCashEntry(id: string): Promise<boolean> {
+  let deleted: boolean;
   if (hasBlob()) {
-    return blobDeleteEntry(id);
+    deleted = await blobDeleteEntry(id);
+  } else {
+    const all = fileReadAll();
+    const next = all.filter((e) => e.id !== id);
+    if (next.length === all.length) return false;
+    fileWriteAll(next);
+    deleted = true;
   }
-  const all = fileReadAll();
-  const next = all.filter((e) => e.id !== id);
-  if (next.length === all.length) return false;
-  fileWriteAll(next);
-  return true;
+  if (deleted) revalidateTag("cash");
+  return deleted;
 }
 
 export async function getCashTotalsPerClub(from?: string, to?: string): Promise<Record<string, number>> {

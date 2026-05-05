@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
 import { put, list, del } from "@vercel/blob";
+import { unstable_cache, revalidateTag } from "next/cache";
 import type { ExpenseCategory } from "./expense-categories";
 
 export type { ExpenseCategory } from "./expense-categories";
@@ -92,13 +93,18 @@ function filterByDate(entries: Expense[], from?: string, to?: string): Expense[]
   });
 }
 
+const getCachedExpenses = unstable_cache(blobReadAll, ["expenses-blob"], {
+  revalidate: 60,
+  tags: ["expenses"],
+});
+
 export async function getAllExpenses(from?: string, to?: string): Promise<Expense[]> {
-  const all = hasBlob() ? await blobReadAll() : fileReadAll();
+  const all = hasBlob() ? await getCachedExpenses() : fileReadAll();
   return filterByDate(all, from, to);
 }
 
 export async function getExpensesForClub(slug: string, from?: string, to?: string): Promise<Expense[]> {
-  const all = hasBlob() ? await blobReadAll() : fileReadAll();
+  const all = hasBlob() ? await getCachedExpenses() : fileReadAll();
   return filterByDate(all.filter((e) => e.clubSlug === slug), from, to);
 }
 
@@ -115,6 +121,7 @@ export async function addExpense(data: Omit<Expense, "id" | "createdAt">): Promi
     all.push(expense);
     fileWriteAll(all);
   }
+  revalidateTag("expenses");
   return expense;
 }
 
@@ -127,6 +134,7 @@ export async function updateExpense(id: string, data: Partial<Omit<Expense, "id"
     const existing = await res.json() as Expense;
     const updated: Expense = { ...existing, ...data };
     await blobWriteEntry(updated);
+    revalidateTag("expenses");
     return updated;
   } else {
     const all = fileReadAll();
@@ -134,19 +142,24 @@ export async function updateExpense(id: string, data: Partial<Omit<Expense, "id"
     if (idx < 0) return null;
     all[idx] = { ...all[idx], ...data };
     fileWriteAll(all);
+    revalidateTag("expenses");
     return all[idx];
   }
 }
 
 export async function deleteExpense(id: string): Promise<boolean> {
+  let deleted: boolean;
   if (hasBlob()) {
-    return blobDeleteEntry(id);
+    deleted = await blobDeleteEntry(id);
+  } else {
+    const all = fileReadAll();
+    const next = all.filter((e) => e.id !== id);
+    if (next.length === all.length) return false;
+    fileWriteAll(next);
+    deleted = true;
   }
-  const all = fileReadAll();
-  const next = all.filter((e) => e.id !== id);
-  if (next.length === all.length) return false;
-  fileWriteAll(next);
-  return true;
+  if (deleted) revalidateTag("expenses");
+  return deleted;
 }
 
 export async function getExpenseTotalsPerClub(from?: string, to?: string): Promise<Record<string, number>> {

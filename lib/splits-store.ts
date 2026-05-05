@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { put, list, del } from "@vercel/blob";
+import { unstable_cache, revalidateTag } from "next/cache";
 
 export interface SplitRecipient {
   name: string;
@@ -82,11 +83,18 @@ function fileWriteAll(splits: ClubSplit[]): void {
   try { fs.writeFileSync(SEED_FILE, json); } catch { /* read-only on Vercel */ }
 }
 
+// ── Cached read ───────────────────────────────────────────────────────────────
+
+const getCachedSplits = unstable_cache(blobReadAll, ["splits-blob"], {
+  revalidate: 60,
+  tags: ["splits"],
+});
+
 // ── Public API ────────────────────────────────────────────────────────────────
 
 export async function getAllSplits(): Promise<ClubSplit[]> {
   if (!hasBlob()) return fileReadAll();
-  const blobs = await blobReadAll();
+  const blobs = await getCachedSplits();
   if (blobs.length > 0) return blobs;
   // Blob is empty — auto-migrate from seed file
   const fromFile = fileReadAll();
@@ -125,5 +133,6 @@ export async function upsertSplit(clubSlug: string, recipients: SplitRecipient[]
     if (idx >= 0) all[idx] = entry; else all.push(entry);
     fileWriteAll(all);
   }
+  revalidateTag("splits");
   return entry;
 }
