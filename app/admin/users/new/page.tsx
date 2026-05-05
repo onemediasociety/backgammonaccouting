@@ -29,6 +29,7 @@ function Field({ label, children, hint }: { label: string; children: React.React
 interface InviteResult {
   inviteUrl: string;
   username: string;
+  userId: string;
 }
 
 export default function NewUserPage() {
@@ -43,6 +44,9 @@ export default function NewUserPage() {
   const [saving, setSaving] = useState(false);
   const [invite, setInvite] = useState<InviteResult | null>(null);
   const [copied, setCopied] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
+  const [emailError, setEmailError] = useState("");
 
   function handleNameChange(name: string) {
     setForm((p) => ({
@@ -94,7 +98,7 @@ export default function NewUserPage() {
       const invRes = await fetch(`/api/admin/users/${data.id}/invite`, { method: "POST" });
       const invData = await invRes.json();
       if (invRes.ok) {
-        setInvite({ inviteUrl: invData.inviteUrl, username: data.username });
+        setInvite({ inviteUrl: invData.inviteUrl, username: data.username, userId: data.id });
       } else {
         // Created but invite failed — go to list
         window.location.href = "/admin/users";
@@ -112,14 +116,26 @@ export default function NewUserPage() {
     });
   }
 
-  function mailtoLink() {
-    if (!invite) return "#";
-    const to = form.email.trim();
-    const subject = encodeURIComponent("You've been invited to Backgammon Society Accounting");
-    const body = encodeURIComponent(
-      `Hi ${form.name || invite.username},\n\nYou've been invited to join the Backgammon Society accounting platform.\n\nClick the link below to set your password and access your dashboard:\n\n${invite.inviteUrl}\n\nThis link expires in 7 days.\n\nWelcome aboard!`
-    );
-    return `mailto:${to}?subject=${subject}&body=${body}`;
+  async function sendEmail() {
+    if (!invite || !form.email.trim()) return;
+    setSending(true);
+    setEmailError("");
+    try {
+      const res = await fetch(`/api/admin/users/${invite.userId}/send-invite-email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          inviteUrl: invite.inviteUrl,
+          toEmail: form.email.trim(),
+          toName: form.name.trim() || invite.username,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setEmailError(data.error ?? "Failed to send email."); return; }
+      setEmailSent(true);
+    } finally {
+      setSending(false);
+    }
   }
 
   // ── Step 2: Invite sent ───────────────────────────────────────────────────
@@ -158,21 +174,37 @@ export default function NewUserPage() {
             </button>
           </div>
 
-          {form.email && (
-            <a
-              href={mailtoLink()}
-              style={{
-                display: "inline-flex", alignItems: "center", gap: 8,
-                fontFamily: "var(--font-dm-mono, monospace)", fontSize: 12,
-                padding: "10px 18px", borderRadius: 8,
-                background: "var(--ink)", color: "var(--brass)",
-                textDecoration: "none", width: "100%", justifyContent: "center",
-                boxSizing: "border-box",
-              }}
-            >
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="1" y="3" width="14" height="10" rx="2" stroke="currentColor" strokeWidth="1.3"/><path d="M1 5l7 5 7-5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
-              Send Email to {form.email}
-            </a>
+          {form.email && !emailSent && (
+            <>
+              <button
+                onClick={sendEmail}
+                disabled={sending}
+                style={{
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                  width: "100%", fontFamily: "var(--font-dm-mono, monospace)", fontSize: 12,
+                  padding: "11px 18px", borderRadius: 8, border: "none",
+                  background: "var(--ink)", color: "var(--brass)",
+                  cursor: sending ? "wait" : "pointer", opacity: sending ? 0.6 : 1,
+                  boxSizing: "border-box",
+                }}
+              >
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="1" y="3" width="14" height="10" rx="2" stroke="currentColor" strokeWidth="1.3"/><path d="M1 5l7 5 7-5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
+                {sending ? "Sending…" : `Send Invite to ${form.email}`}
+              </button>
+              {emailError && (
+                <p style={{ fontSize: 11, color: "var(--burgundy)", marginTop: 8, fontFamily: "var(--font-dm-mono, monospace)" }}>
+                  {emailError}
+                </p>
+              )}
+            </>
+          )}
+          {emailSent && (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", borderRadius: 8, background: "rgba(31,77,58,0.15)", border: "1px solid rgba(31,77,58,0.3)" }}>
+              <span style={{ fontSize: 14 }}>✓</span>
+              <p style={{ fontSize: 12, color: "var(--bs-green, #1f4d3a)", margin: 0, fontFamily: "var(--font-dm-mono, monospace)" }}>
+                Invite email sent to {form.email}
+              </p>
+            </div>
           )}
           {!form.email && (
             <p style={{ fontSize: 11, color: "var(--ink-3)", fontFamily: "var(--font-dm-mono, monospace)" }}>
