@@ -7,7 +7,6 @@ import { getVenueMappings } from "@/lib/venues-store";
 import VenueManager from "@/components/VenueManager";
 import SplitsEditor from "@/components/SplitsEditor";
 
-export const metadata = { title: "Settings " };
 
 export const dynamic = "force-dynamic";
 

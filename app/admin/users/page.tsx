@@ -6,7 +6,6 @@ import DeleteUserButton from "./DeleteUserButton";
 import InviteButton from "./InviteButton";
 import ApproveButton from "./ApproveButton";
 
-export const metadata = { title: "Users " };
 
 export const dynamic = "force-dynamic";
 
