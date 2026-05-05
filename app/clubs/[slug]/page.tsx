@@ -19,6 +19,12 @@ import ExportButtons from "@/components/ExportButtons";
 
 export const dynamic = "force-dynamic";
 
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const club = getClub(slug);
+  return { title: club ? `${club.city} ` : "" };
+}
+
 function toTs(dateStr: string | null, endOfDay = false): number | undefined {
   if (!dateStr) return undefined;
   const d = new Date(dateStr);

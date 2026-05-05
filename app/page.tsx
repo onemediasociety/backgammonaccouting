@@ -12,6 +12,8 @@ import { parseDateRange } from "@/lib/date-range";
 import { buildMonthlyRevenue } from "@/lib/monthly-revenue";
 import type { ClubSummary } from "@/lib/stripe-client";
 
+export const metadata = { title: "Overview " };
+
 export const dynamic = "force-dynamic";
 
 function toTs(dateStr: string | null, endOfDay = false): number | undefined {

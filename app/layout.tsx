@@ -33,7 +33,10 @@ const lora = Lora({
 });
 
 export const metadata: Metadata = {
-  title: "The Backgammon Society – Accounting",
+  title: {
+    template: "%s Backgammon Society",
+    default: "Backgammon Society",
+  },
   description: "Per-club accounting dashboard for The Backgammon Society",
 };
 

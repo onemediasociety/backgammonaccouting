@@ -3,6 +3,8 @@ import { fetchAllPayments } from "@/lib/stripe-client";
 import { CLUBS } from "@/lib/clubs";
 import { formatAmount } from "@/lib/clubs";
 
+export const metadata = { title: "Members " };
+
 export const dynamic = "force-dynamic";
 
 interface Member {

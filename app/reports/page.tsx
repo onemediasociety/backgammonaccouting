@@ -8,6 +8,8 @@ import DateFilter from "@/components/DateFilter";
 import ExportButtons from "@/components/ExportButtons";
 import { parseDateRange } from "@/lib/date-range";
 
+export const metadata = { title: "Reports " };
+
 export const dynamic = "force-dynamic";
 
 function toTs(dateStr: string | null, endOfDay = false): number | undefined {
