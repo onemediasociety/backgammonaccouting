@@ -4,6 +4,7 @@ import { getAllUsers } from "@/lib/users-store";
 import { getAllClubs } from "@/lib/clubs-server";
 import DeleteUserButton from "./DeleteUserButton";
 import InviteButton from "./InviteButton";
+import ApproveButton from "./ApproveButton";
 
 export const dynamic = "force-dynamic";
 
@@ -106,6 +107,9 @@ export default async function UsersPage() {
                   </td>
                   <td style={{ textAlign: "right" }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" }}>
+                      {user.status === "pending" && (
+                        <ApproveButton userId={user.id} clubSlugs={user.clubSlugs} />
+                      )}
                       <InviteButton userId={user.id} username={user.username} />
                       <Link href={`/admin/users/${user.id}`} style={{
                         fontSize: 11, fontFamily: "var(--font-dm-mono, monospace)",
