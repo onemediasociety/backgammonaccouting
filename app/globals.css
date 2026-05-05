@@ -64,7 +64,7 @@ body {
 
 /* ── Sidebar ───────────────────────────────────────────────────── */
 .bs-sidebar {
-  background-color: var(--ink);
+  background-color: #1a1611; /* always dark — sidebar is never affected by color-scheme */
   display: flex;
   flex-direction: column;
   height: calc(100vh - 4px);
