@@ -19,6 +19,10 @@ export interface User {
   status: "active" | "pending";
   clubSlugs: string[];
   recipientName?: string;  // links this account to a split recipient (e.g. "Tina")
+  email?: string;
+  preferredCurrency?: string; // ISO 4217 lowercase (e.g. "eur", "usd"); used for payout display
+  inviteToken?: string;
+  inviteExpiry?: string; // ISO timestamp
   bankDetails?: BankDetails;
   createdAt: string;
   updatedAt: string;
@@ -109,7 +113,15 @@ export function registerUser(data: {
 
 export function updateUser(
   id: string,
-  data: { username?: string; password?: string; clubSlugs?: string[]; status?: "active" | "pending"; recipientName?: string | null }
+  data: {
+    username?: string;
+    password?: string;
+    clubSlugs?: string[];
+    status?: "active" | "pending";
+    recipientName?: string | null;
+    email?: string | null;
+    preferredCurrency?: string | null;
+  }
 ): SafeUser {
   const users = readStore();
   const idx = users.findIndex((u) => u.id === id);
@@ -134,6 +146,49 @@ export function updateUser(
   if (data.recipientName !== undefined) {
     users[idx].recipientName = data.recipientName ?? undefined;
   }
+  if (data.email !== undefined) {
+    users[idx].email = data.email ?? undefined;
+  }
+  if (data.preferredCurrency !== undefined) {
+    users[idx].preferredCurrency = data.preferredCurrency ?? undefined;
+  }
+  users[idx].updatedAt = new Date().toISOString();
+  writeStore(users);
+  const { passwordHash: _ph, ...safe } = users[idx];
+  return safe;
+}
+
+export function getUserByInviteToken(token: string): User | undefined {
+  const users = readStore();
+  return users.find(
+    (u) => u.inviteToken === token && u.inviteExpiry && new Date(u.inviteExpiry) > new Date()
+  );
+}
+
+export function createInviteToken(id: string): { token: string; expiry: string } {
+  const users = readStore();
+  const idx = users.findIndex((u) => u.id === id);
+  if (idx < 0) throw new Error("User not found");
+  const token = crypto.randomBytes(32).toString("hex");
+  const expiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(); // 7 days
+  users[idx].inviteToken = token;
+  users[idx].inviteExpiry = expiry;
+  users[idx].updatedAt = new Date().toISOString();
+  writeStore(users);
+  return { token, expiry };
+}
+
+export function acceptInvite(token: string, password: string): SafeUser {
+  const users = readStore();
+  const idx = users.findIndex(
+    (u) => u.inviteToken === token && u.inviteExpiry && new Date(u.inviteExpiry) > new Date()
+  );
+  if (idx < 0) throw new Error("Invalid or expired invite link");
+  if (password.length < 8) throw new Error("Password must be at least 8 characters");
+  users[idx].passwordHash = hashPassword(password);
+  users[idx].status = "active";
+  users[idx].inviteToken = undefined;
+  users[idx].inviteExpiry = undefined;
   users[idx].updatedAt = new Date().toISOString();
   writeStore(users);
   const { passwordHash: _ph, ...safe } = users[idx];

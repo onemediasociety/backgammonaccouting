@@ -6,6 +6,8 @@ import { fetchPaymentsForClub, fetchFeesByClub } from "@/lib/stripe-client";
 import { getCashEntriesForClub } from "@/lib/cash-store";
 import { getExpensesForClub } from "@/lib/expenses-store";
 import { getSplitForClub } from "@/lib/splits-store";
+import { getAllUsers } from "@/lib/users-store";
+import { convertCents } from "@/lib/fx-rates";
 import { getSession } from "@/lib/get-session";
 import TransactionTable from "@/components/TransactionTable";
 import CashSection from "@/components/CashSection";
@@ -57,6 +59,7 @@ async function StripeData({
 }) {
   const session = await getSession();
   const split = await getSplitForClub(slug);
+  const allUsers = getAllUsers();
   const [cashEntries, expenses] = await Promise.all([
     getCashEntriesForClub(slug, range.from ?? undefined, range.to ?? undefined),
     getExpensesForClub(slug, range.from ?? undefined, range.to ?? undefined),
@@ -168,6 +171,15 @@ async function StripeData({
               if (hasFlatFee || hasReimbursement) parts.push(`${formatAmount(splitAmount, currency)} split`);
               if (hasFlatFee) parts.push(`${formatAmount(flatFee, currency)} flat fee`);
               if (hasReimbursement) parts.push(`${formatAmount(expensesReimbursed, currency)} exp. reimbursed`);
+
+              // Preferred currency conversion
+              const linkedUser = allUsers.find(
+                (u) => u.recipientName && u.recipientName.toLowerCase() === r.name.toLowerCase()
+              );
+              const prefCurrency = linkedUser?.preferredCurrency;
+              const showConversion = prefCurrency && prefCurrency !== currency;
+              const convertedAmount = showConversion ? convertCents(totalAmount, currency, prefCurrency!) : null;
+
               return (
                 <div key={i} className="bs-card" style={{
                   padding: "18px 22px",
@@ -186,12 +198,28 @@ async function StripeData({
                   }}>
                     {formatAmount(totalAmount, currency)}
                   </p>
+                  {convertedAmount !== null && (
+                    <p className="bs-mono" style={{
+                      fontSize: 13, marginTop: 2, fontWeight: 600,
+                      color: isAdmin && r.pct > 0 ? "rgba(255,255,255,0.8)" : "var(--brass)",
+                    }}>
+                      ≈ {formatAmount(convertedAmount, prefCurrency!)}
+                    </p>
+                  )}
                   {parts.length > 0 && (
                     <p className="bs-mono" style={{
                       fontSize: 10, marginTop: 4,
                       color: isAdmin && r.pct > 0 ? "rgba(255,255,255,0.55)" : "var(--ink-3)",
                     }}>
                       {parts.join(" + ")}
+                    </p>
+                  )}
+                  {showConversion && (
+                    <p className="bs-mono" style={{
+                      fontSize: 9, marginTop: 3,
+                      color: isAdmin && r.pct > 0 ? "rgba(255,255,255,0.4)" : "var(--ink-3)",
+                    }}>
+                      indicative rate · preferred currency
                     </p>
                   )}
                 </div>

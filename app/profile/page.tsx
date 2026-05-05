@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import type { BankDetails } from "@/lib/users-store";
+import { SUPPORTED_CURRENCIES } from "@/lib/fx-rates";
 import type { ProcessedPayout } from "@/lib/payout-store";
 import type { ClubSplit, SplitRecipient } from "@/lib/splits-store";
 
@@ -13,6 +14,8 @@ interface UserProfile {
   recipientName?: string;
   bankDetails?: BankDetails;
   clubSlugs: string[];
+  email?: string;
+  preferredCurrency?: string;
 }
 
 const inputStyle: React.CSSProperties = {
@@ -57,6 +60,10 @@ export default function ProfilePage() {
     accountNumber: "",
     accountType: "checking",
   });
+  const [email, setEmail] = useState("");
+  const [preferredCurrency, setPreferredCurrency] = useState("");
+  const [prefSaving, setPrefSaving] = useState(false);
+  const [prefSaved, setPrefSaved] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -68,6 +75,8 @@ export default function ProfilePage() {
     ]).then(([p, h, s, c, u]: [UserProfile, ProcessedPayout[], ClubSplit[], { slug: string; city: string; flag: string }[], { id: string; username: string; recipientName?: string }[]]) => {
       setProfile(p);
       if (p.bankDetails) setBank(p.bankDetails);
+      if (p.email) setEmail(p.email);
+      if (p.preferredCurrency) setPreferredCurrency(p.preferredCurrency);
       setPayouts(h);
       setSplits(s);
       setClubs(c);
@@ -122,6 +131,25 @@ export default function ProfilePage() {
     setSaving(false);
   }
 
+  async function savePreferences(e: React.FormEvent) {
+    e.preventDefault();
+    setPrefSaving(true);
+    setPrefSaved(false);
+    const res = await fetch("/api/profile", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: email || null,
+        preferredCurrency: preferredCurrency || null,
+      }),
+    });
+    if (res.ok) {
+      setPrefSaved(true);
+      setTimeout(() => setPrefSaved(false), 3000);
+    }
+    setPrefSaving(false);
+  }
+
   if (loading) {
     return (
       <div style={{ maxWidth: 560 }}>
@@ -171,6 +199,57 @@ export default function ProfilePage() {
           </p>
         )}
       </div>
+
+      {/* Preferred payment currency — club admins only */}
+      {profile.role !== "super_admin" && (
+        <section style={{ marginBottom: 28 }}>
+          <h2 className="bs-heading" style={{ fontSize: 17, marginBottom: 14 }}>Payment Preferences</h2>
+          <form onSubmit={savePreferences} className="bs-card" style={{ padding: "20px" }}>
+            <p style={{ fontSize: 11, color: "var(--ink-3)", marginBottom: 16 }}>
+              Your preferred currency is shown alongside your split payout on each club page,
+              so payouts can be sent in the currency that suits you best.
+            </p>
+            <div style={{ display: "grid", gap: 14 }}>
+              <div>
+                <label style={labelStyle}>Email Address</label>
+                <input
+                  type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+                  style={inputStyle} placeholder="you@example.com"
+                />
+              </div>
+              <div>
+                <label style={labelStyle}>Preferred Payment Currency</label>
+                <select
+                  value={preferredCurrency}
+                  onChange={(e) => setPreferredCurrency(e.target.value)}
+                  style={{ ...inputStyle, appearance: "none" }}
+                >
+                  <option value="">— not set —</option>
+                  {SUPPORTED_CURRENCIES.map((c) => (
+                    <option key={c} value={c}>{c.toUpperCase()}</option>
+                  ))}
+                </select>
+                {preferredCurrency && (
+                  <p style={{ fontSize: 10, color: "var(--ink-3)", marginTop: 5, fontFamily: "var(--font-dm-mono, monospace)" }}>
+                    Your payout amounts will be shown in {preferredCurrency.toUpperCase()} on club pages.
+                  </p>
+                )}
+              </div>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 18 }}>
+              <button type="submit" disabled={prefSaving} style={{
+                fontFamily: "var(--font-dm-mono, monospace)", fontSize: 12,
+                padding: "9px 20px", borderRadius: 8, border: "none",
+                background: "var(--ink)", color: "var(--brass)", cursor: "pointer",
+                opacity: prefSaving ? 0.6 : 1,
+              }}>
+                {prefSaving ? "Saving…" : "Save Preferences"}
+              </button>
+              {prefSaved && <span style={{ fontSize: 12, color: "var(--bs-green, #1f4d3a)", fontFamily: "var(--font-dm-mono, monospace)" }}>Saved ✓</span>}
+            </div>
+          </form>
+        </section>
+      )}
 
       {/* Earnings summary */}
       {profile.recipientName && (

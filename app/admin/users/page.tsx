@@ -3,6 +3,7 @@ import { requireSuperAdmin } from "@/lib/get-session";
 import { getAllUsers } from "@/lib/users-store";
 import { getAllClubs } from "@/lib/clubs-server";
 import DeleteUserButton from "./DeleteUserButton";
+import InviteButton from "./InviteButton";
 
 export const dynamic = "force-dynamic";
 
@@ -63,6 +64,7 @@ export default async function UsersPage() {
                 <th>User</th>
                 <th>Role</th>
                 <th>Assigned Clubs</th>
+                <th>Pref. Currency</th>
                 <th>Created</th>
                 <th />
               </tr>
@@ -75,22 +77,36 @@ export default async function UsersPage() {
                       <div className="bs-avatar" style={{ width: 28, height: 28, fontSize: 10, flexShrink: 0 }}>
                         {user.username.slice(0, 2).toUpperCase()}
                       </div>
-                      <span style={{ fontSize: 13, fontWeight: 500, color: "var(--ink)" }}>{user.username}</span>
+                      <div>
+                        <span style={{ fontSize: 13, fontWeight: 500, color: "var(--ink)" }}>{user.username}</span>
+                        {user.email && (
+                          <p className="bs-mono" style={{ fontSize: 9, color: "var(--ink-3)", marginTop: 1 }}>{user.email}</p>
+                        )}
+                      </div>
                     </div>
                   </td>
                   <td>
                     <span style={{ fontSize: 10, fontFamily: "var(--font-dm-mono, monospace)", padding: "2px 8px", borderRadius: 20, background: "rgba(139,26,26,0.08)", color: "var(--burgundy)", border: "1px solid rgba(139,26,26,0.15)" }}>
                       Club Admin
                     </span>
+                    {user.status === "pending" && (
+                      <span style={{ fontSize: 10, fontFamily: "var(--font-dm-mono, monospace)", padding: "2px 8px", borderRadius: 20, background: "rgba(184,144,66,0.1)", color: "var(--brass)", border: "1px solid rgba(184,144,66,0.2)", marginLeft: 6 }}>
+                        Pending
+                      </span>
+                    )}
                   </td>
                   <td style={{ fontSize: 12, color: "var(--ink-2)" }}>
                     {clubNames(user.clubSlugs)}
+                  </td>
+                  <td className="bs-mono" style={{ fontSize: 11, color: user.preferredCurrency ? "var(--ink)" : "var(--ink-3)" }}>
+                    {user.preferredCurrency ? user.preferredCurrency.toUpperCase() : "—"}
                   </td>
                   <td className="bs-mono" style={{ fontSize: 11, color: "var(--ink-3)" }}>
                     {new Date(user.createdAt).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}
                   </td>
                   <td style={{ textAlign: "right" }}>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8 }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" }}>
+                      <InviteButton userId={user.id} username={user.username} />
                       <Link href={`/admin/users/${user.id}`} style={{
                         fontSize: 11, fontFamily: "var(--font-dm-mono, monospace)",
                         color: "var(--ink-3)", textDecoration: "none",

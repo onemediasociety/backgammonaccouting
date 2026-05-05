@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 
 const inputStyle: React.CSSProperties = {
   width: "100%", borderRadius: 8, border: "1px solid var(--rule)",
@@ -16,12 +17,39 @@ const labelStyle: React.CSSProperties = {
   color: "var(--ink-3)", marginBottom: 6,
 };
 
-export default function RegisterPage() {
+function focusBorder(e: React.FocusEvent<HTMLInputElement>, active: boolean) {
+  e.target.style.borderColor = active ? "var(--brass)" : "var(--rule)";
+}
+
+interface InviteInfo {
+  username: string;
+  recipientName: string | null;
+  clubSlugs: string[];
+}
+
+function RegisterForm() {
+  const searchParams = useSearchParams();
+  const token = searchParams.get("token");
+
+  const [invite, setInvite] = useState<InviteInfo | null>(null);
+  const [inviteError, setInviteError] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!token) return;
+    fetch(`/api/auth/invite-info?token=${token}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.error) { setInviteError(data.error); return; }
+        setInvite(data);
+        setUsername(data.username);
+      })
+      .catch(() => setInviteError("Could not load invite."));
+  }, [token]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -30,14 +58,27 @@ export default function RegisterPage() {
     if (password.length < 8) { setError("Password must be at least 8 characters."); return; }
     setLoading(true);
     try {
-      const res = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: username.trim(), password }),
-      });
-      const data = await res.json();
-      if (!res.ok) { setError(data.error ?? "Registration failed."); return; }
-      window.location.href = "/pending";
+      if (token) {
+        // Invite flow — activate the pre-created account
+        const res = await fetch("/api/auth/invite-register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token, password }),
+        });
+        const data = await res.json();
+        if (!res.ok) { setError(data.error ?? "Failed to activate account."); return; }
+        window.location.href = "/profile";
+      } else {
+        // Standard self-registration
+        const res = await fetch("/api/auth/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username: username.trim(), password }),
+        });
+        const data = await res.json();
+        if (!res.ok) { setError(data.error ?? "Registration failed."); return; }
+        window.location.href = "/pending";
+      }
     } catch {
       setError("Something went wrong. Please try again.");
     } finally {
@@ -45,10 +86,87 @@ export default function RegisterPage() {
     }
   }
 
-  function focusBorder(e: React.FocusEvent<HTMLInputElement>, active: boolean) {
-    e.target.style.borderColor = active ? "var(--brass)" : "var(--rule)";
+  if (token && inviteError) {
+    return (
+      <div className="bs-card" style={{ padding: "28px 32px", textAlign: "center" }}>
+        <p style={{ fontSize: 13, color: "var(--burgundy)", marginBottom: 16 }}>{inviteError}</p>
+        <Link href="/login" style={{ fontSize: 12, color: "var(--brass)", textDecoration: "none" }}>
+          Sign in instead →
+        </Link>
+      </div>
+    );
   }
 
+  return (
+    <div className="bs-card" style={{ padding: "28px 32px" }}>
+      {token && invite && (
+        <div style={{
+          background: "rgba(31,77,58,0.07)", border: "1px solid rgba(31,77,58,0.2)",
+          borderRadius: 8, padding: "12px 14px", marginBottom: 20,
+        }}>
+          <p style={{ fontSize: 12, color: "var(--bs-green, #1f4d3a)", margin: 0 }}>
+            <strong>You&apos;ve been invited</strong>
+            {invite.recipientName ? ` as ${invite.recipientName}` : ""}.
+            {" "}Set a password below to activate your account.
+          </p>
+        </div>
+      )}
+      <form onSubmit={handleSubmit}>
+        <div style={{ marginBottom: 16 }}>
+          <label style={labelStyle}>Username</label>
+          <input
+            type="text" value={username} onChange={(e) => setUsername(e.target.value)}
+            required autoFocus={!token} autoComplete="username" placeholder="your-name"
+            readOnly={!!token && !!invite}
+            style={{ ...inputStyle, opacity: token && invite ? 0.6 : 1 }}
+            onFocus={(e) => focusBorder(e, true)} onBlur={(e) => focusBorder(e, false)}
+          />
+        </div>
+        <div style={{ marginBottom: 16 }}>
+          <label style={labelStyle}>Password</label>
+          <input
+            type="password" value={password} onChange={(e) => setPassword(e.target.value)}
+            required autoFocus={!!token} autoComplete="new-password" placeholder="at least 8 characters"
+            style={inputStyle}
+            onFocus={(e) => focusBorder(e, true)} onBlur={(e) => focusBorder(e, false)}
+          />
+        </div>
+        <div style={{ marginBottom: 20 }}>
+          <label style={labelStyle}>Confirm Password</label>
+          <input
+            type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)}
+            required autoComplete="new-password" placeholder="••••••••"
+            style={inputStyle}
+            onFocus={(e) => focusBorder(e, true)} onBlur={(e) => focusBorder(e, false)}
+          />
+        </div>
+
+        {error && (
+          <div style={{
+            background: "rgba(139,26,26,0.07)", border: "1px solid rgba(139,26,26,0.2)",
+            borderRadius: 7, padding: "10px 14px", marginBottom: 16,
+            fontSize: 12, color: "var(--burgundy)",
+          }}>{error}</div>
+        )}
+
+        <button
+          type="submit" disabled={loading || (!!token && !invite && !inviteError)}
+          style={{
+            width: "100%", padding: "11px", borderRadius: 8, border: "none",
+            background: "var(--ink)", color: "rgba(240,235,226,0.9)",
+            fontFamily: "var(--font-dm-mono, monospace)", fontSize: 12,
+            fontWeight: 500, letterSpacing: "0.06em", textTransform: "uppercase",
+            cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.6 : 1,
+          }}
+        >
+          {loading ? "Activating…" : token ? "Set Password & Activate" : "Create Account"}
+        </button>
+      </form>
+    </div>
+  );
+}
+
+export default function RegisterPage() {
   return (
     <div style={{
       minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center",
@@ -56,7 +174,6 @@ export default function RegisterPage() {
       backgroundImage: "radial-gradient(ellipse 80% 50% at 5% 0%, rgba(184,144,66,0.08) 0%, transparent 60%), radial-gradient(ellipse 60% 40% at 95% 100%, rgba(139,26,26,0.06) 0%, transparent 50%)",
     }}>
       <div style={{ width: "100%", maxWidth: 360, padding: "0 16px" }}>
-        {/* Logo */}
         <div style={{ textAlign: "center", marginBottom: 32 }}>
           <div style={{
             width: 52, height: 52, borderRadius: 12, margin: "0 auto 14px",
@@ -72,58 +189,9 @@ export default function RegisterPage() {
           </p>
         </div>
 
-        <div className="bs-card" style={{ padding: "28px 32px" }}>
-          <form onSubmit={handleSubmit}>
-            <div style={{ marginBottom: 16 }}>
-              <label style={labelStyle}>Username</label>
-              <input
-                type="text" value={username} onChange={(e) => setUsername(e.target.value)}
-                required autoFocus autoComplete="username" placeholder="your-name"
-                style={inputStyle}
-                onFocus={(e) => focusBorder(e, true)} onBlur={(e) => focusBorder(e, false)}
-              />
-            </div>
-            <div style={{ marginBottom: 16 }}>
-              <label style={labelStyle}>Password</label>
-              <input
-                type="password" value={password} onChange={(e) => setPassword(e.target.value)}
-                required autoComplete="new-password" placeholder="at least 8 characters"
-                style={inputStyle}
-                onFocus={(e) => focusBorder(e, true)} onBlur={(e) => focusBorder(e, false)}
-              />
-            </div>
-            <div style={{ marginBottom: 20 }}>
-              <label style={labelStyle}>Confirm Password</label>
-              <input
-                type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)}
-                required autoComplete="new-password" placeholder="••••••••"
-                style={inputStyle}
-                onFocus={(e) => focusBorder(e, true)} onBlur={(e) => focusBorder(e, false)}
-              />
-            </div>
-
-            {error && (
-              <div style={{
-                background: "rgba(139,26,26,0.07)", border: "1px solid rgba(139,26,26,0.2)",
-                borderRadius: 7, padding: "10px 14px", marginBottom: 16,
-                fontSize: 12, color: "var(--burgundy)",
-              }}>{error}</div>
-            )}
-
-            <button
-              type="submit" disabled={loading}
-              style={{
-                width: "100%", padding: "11px", borderRadius: 8, border: "none",
-                background: "var(--ink)", color: "rgba(240,235,226,0.9)",
-                fontFamily: "var(--font-dm-mono, monospace)", fontSize: 12,
-                fontWeight: 500, letterSpacing: "0.06em", textTransform: "uppercase",
-                cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.6 : 1,
-              }}
-            >
-              {loading ? "Creating account…" : "Create Account"}
-            </button>
-          </form>
-        </div>
+        <Suspense fallback={<div className="bs-skeleton" style={{ height: 260, borderRadius: 12 }} />}>
+          <RegisterForm />
+        </Suspense>
 
         <p style={{ textAlign: "center", fontSize: 12, color: "var(--ink-3)", marginTop: 16 }}>
           Already have an account?{" "}
