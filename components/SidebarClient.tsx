@@ -25,7 +25,6 @@ interface Props {
   isSuper?: boolean;
 }
 
-// SVG icons matching the design
 const Icons = {
   overview: <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="6" height="6" rx="1.5" stroke="currentColor" strokeWidth="1.3"/><rect x="9" y="1" width="6" height="6" rx="1.5" stroke="currentColor" strokeWidth="1.3"/><rect x="1" y="9" width="6" height="6" rx="1.5" stroke="currentColor" strokeWidth="1.3"/><rect x="9" y="9" width="6" height="6" rx="1.5" stroke="currentColor" strokeWidth="1.3"/></svg>,
   ledger:   <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="12" height="12" rx="2" stroke="currentColor" strokeWidth="1.3"/><path d="M5 6h6M5 8.5h4M5 11h5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>,
@@ -40,13 +39,11 @@ export default function SidebarClient({ clubs, username, role, isSuper }: Props)
   const [expanded, setExpanded] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
 
   const inAdmin = pathname.startsWith("/admin");
 
-  // Which club is "active" — derive from URL
   const clubMatch = pathname.match(/^\/clubs\/([^/]+)/);
   const activeClub = clubMatch ? clubMatch[1] : "all";
 
@@ -64,14 +61,10 @@ export default function SidebarClient({ clubs, username, role, isSuper }: Props)
 
   function handleClubSwitch(e: React.ChangeEvent<HTMLSelectElement>) {
     const val = e.target.value;
-    if (val === "all") {
-      router.push("/");
-    } else {
-      router.push(`/clubs/${val}`);
-    }
+    if (val === "all") router.push("/");
+    else router.push(`/clubs/${val}`);
   }
 
-  // Build nav items based on active club
   const baseItems: NavItem[] = [
     { href: "/", label: "Overview", icon: Icons.overview, exact: true },
   ];
@@ -83,9 +76,11 @@ export default function SidebarClient({ clubs, username, role, isSuper }: Props)
     );
   }
 
-  // Payouts visible to everyone (super admin sees full view, club admins see their earnings)
   baseItems.push({ href: "/payouts", label: "Payouts", icon: Icons.payouts });
-  baseItems.push({ href: "/profile", label: "My Profile", icon: <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="5.5" r="2.5" stroke="currentColor" strokeWidth="1.3"/><path d="M2 13c0-3.31 2.69-6 6-6s6 2.69 6 6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg> });
+  baseItems.push({
+    href: "/profile", label: "My Profile",
+    icon: <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="5.5" r="2.5" stroke="currentColor" strokeWidth="1.3"/><path d="M2 13c0-3.31 2.69-6 6-6s6 2.69 6 6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>,
+  });
 
   if (isSuper) {
     baseItems.push(
@@ -94,12 +89,6 @@ export default function SidebarClient({ clubs, username, role, isSuper }: Props)
     );
   }
 
-  const settingsSubItems = [
-    { href: "/admin", label: "General", exact: true },
-    { href: "/admin/users", label: "Users" },
-    { href: "/admin/splits", label: "Splits" },
-  ];
-
   function isActive(item: NavItem) {
     if (item.exact) return pathname === item.href.split("?")[0];
     return pathname === item.href.split("?")[0] || pathname.startsWith(item.href.split("?")[0] + "/");
@@ -107,6 +96,12 @@ export default function SidebarClient({ clubs, username, role, isSuper }: Props)
 
   const initials = username ? username.slice(0, 2).toUpperCase() : "BS";
   const roleLabel = role === "super_admin" ? "Society admin" : role === "club_admin" ? "Club admin" : "";
+
+  const settingsSubItems = [
+    { href: "/admin", label: "General", exact: true },
+    { href: "/admin/users", label: "Users", exact: false },
+    { href: "/admin/splits", label: "Splits", exact: false },
+  ];
 
   const sidebarContent = (
     <aside
@@ -181,58 +176,44 @@ export default function SidebarClient({ clubs, username, role, isSuper }: Props)
           </Link>
         ))}
 
-        {/* Settings dropdown — super admin only */}
+        {/* Settings + sub-links (super admin only) */}
         {isSuper && (
-          <>
-            <div
-              role="button"
-              tabIndex={0}
-              onClick={() => setSettingsOpen((v) => !v)}
-              onKeyDown={(e) => e.key === "Enter" && setSettingsOpen((v) => !v)}
-              className={`bs-nav-item${inAdmin ? " active" : ""}`}
-              title={!expanded ? "Settings" : undefined}
-              style={{ cursor: "pointer", userSelect: "none" }}
-            >
-              <span className="nav-icon">{Icons.admin}</span>
-              {expanded && (
-                <>
-                  <span className="nav-label" style={{ flex: 1 }}>Settings</span>
-                  <svg
-                    width="10" height="10" viewBox="0 0 10 10" fill="none"
-                    style={{ flexShrink: 0, transition: "transform 180ms", transform: (settingsOpen || inAdmin) ? "rotate(180deg)" : "none", opacity: 0.5 }}
-                  >
-                    <path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </>
-              )}
-            </div>
+          <Link
+            href="/admin"
+            onClick={() => setMobileOpen(false)}
+            className={`bs-nav-item${inAdmin && !expanded ? " active" : ""}`}
+            title={!expanded ? "Settings" : undefined}
+            style={inAdmin && expanded ? { color: "rgba(240,235,226,0.9)" } : undefined}
+          >
+            <span className="nav-icon">{Icons.admin}</span>
+            {expanded && <span className="nav-label">Settings</span>}
+          </Link>
+        )}
 
-            {(settingsOpen || inAdmin) && expanded && (
-              <div style={{ paddingLeft: 16, paddingBottom: 2 }}>
-                {settingsSubItems.map((sub) => {
-                  const subActive = sub.exact ? pathname === sub.href : pathname.startsWith(sub.href);
-                  return (
-                    <Link
-                      key={sub.href}
-                      href={sub.href}
-                      onClick={() => setMobileOpen(false)}
-                      style={{
-                        display: "block", padding: "6px 12px", borderRadius: 6, fontSize: 12,
-                        fontFamily: "var(--font-dm-mono, monospace)",
-                        color: subActive ? "rgba(240,235,226,0.9)" : "rgba(240,235,226,0.45)",
-                        background: subActive ? "rgba(255,255,255,0.09)" : "none",
-                        textDecoration: "none", marginBottom: 2,
-                        borderLeft: subActive ? "2px solid rgba(184,144,66,0.6)" : "2px solid transparent",
-                        transition: "all 150ms",
-                      }}
-                    >
-                      {sub.label}
-                    </Link>
-                  );
-                })}
-              </div>
-            )}
-          </>
+        {/* Sub-links shown when sidebar is expanded and we're in admin, OR always visible as a group */}
+        {isSuper && expanded && (
+          <div style={{ paddingLeft: 14, paddingBottom: 4 }}>
+            {settingsSubItems.map((sub) => {
+              const subActive = sub.exact ? pathname === sub.href : pathname.startsWith(sub.href);
+              return (
+                <Link
+                  key={sub.href}
+                  href={sub.href}
+                  onClick={() => setMobileOpen(false)}
+                  style={{
+                    display: "block", padding: "5px 10px", borderRadius: 6, fontSize: 11,
+                    fontFamily: "var(--font-dm-mono, monospace)",
+                    color: subActive ? "rgba(240,235,226,0.9)" : "rgba(240,235,226,0.38)",
+                    background: subActive ? "rgba(255,255,255,0.08)" : "none",
+                    textDecoration: "none", marginBottom: 1,
+                    borderLeft: subActive ? "2px solid rgba(184,144,66,0.55)" : "2px solid transparent",
+                  }}
+                >
+                  {sub.label}
+                </Link>
+              );
+            })}
+          </div>
         )}
       </nav>
 
@@ -310,7 +291,6 @@ export default function SidebarClient({ clubs, username, role, isSuper }: Props)
         </span>
       </div>
 
-      {/* Overlay */}
       {mobileOpen && (
         <div className="bs-mobile-overlay open" onClick={() => setMobileOpen(false)} />
       )}
