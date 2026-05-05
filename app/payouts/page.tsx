@@ -288,6 +288,27 @@ function SuperAdminView() {
     setProcessing(false);
   }
 
+  async function sendToQBO(payoutId: string, recipientName: string) {
+    const key = `${payoutId}:${recipientName}`;
+    setTransferring(key + ":qbo");
+    try {
+      const res = await fetch("/api/payouts/send-to-qbo", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ payoutId, recipientName }),
+      });
+      const data = await res.json();
+      if (res.ok && data.ok) {
+        alert(`Invoice sent to QuickBooks for ${recipientName}.`);
+      } else {
+        const err = data.results?.[0]?.error ?? data.error ?? "Failed";
+        alert(`QuickBooks error: ${err}`);
+      }
+    } catch {
+      alert("Failed to connect to QuickBooks.");
+    }
+    setTransferring("");
+  }
+
   async function markTransferred(payoutId: string, recipientName: string) {
     const key = `${payoutId}:${recipientName}`;
     setTransferring(key);
@@ -640,6 +661,14 @@ function SuperAdminView() {
                             >
                               Statement ↗
                             </Link>
+                            <button
+                              onClick={() => sendToQBO(p.id, name)}
+                              disabled={transferring === `${key}:qbo`}
+                              title="Create & email invoice via QuickBooks"
+                              style={{ fontSize: 11, fontFamily: "var(--font-dm-mono, monospace)", padding: "4px 10px", borderRadius: 6, border: "1px solid rgba(45,110,200,0.3)", background: "rgba(45,110,200,0.06)", color: "rgb(45,110,200)", cursor: "pointer", opacity: transferring === `${key}:qbo` ? 0.6 : 1 }}
+                            >
+                              {transferring === `${key}:qbo` ? "Sending…" : "QB Invoice"}
+                            </button>
                             {!transferred && (
                               <button
                                 onClick={() => markTransferred(p.id, name)}

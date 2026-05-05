@@ -6,12 +6,18 @@ import { getExtraClubs } from "@/lib/clubs-store";
 import { getVenueMappings } from "@/lib/venues-store";
 import VenueManager from "@/components/VenueManager";
 import SplitsEditor from "@/components/SplitsEditor";
+import QBOConnect from "@/components/QBOConnect";
 
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminSettingsPage() {
+export default async function AdminSettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ qbo_connected?: string; qbo_error?: string }>;
+}) {
   await requireSuperAdmin();
+  const sp = await searchParams;
   const users = await getAllUsers();
   const pendingUsers = users.filter((u) => u.status === "pending");
   const allClubs = getAllClubs();
@@ -160,6 +166,24 @@ export default async function AdminSettingsPage() {
         </div>
         <div className="bs-card" style={{ overflow: "hidden", maxWidth: 560 }}>
           <VenueManager initial={venues} clubs={clubOptions} />
+        </div>
+      </section>
+
+      {/* QuickBooks */}
+      <section style={{ marginTop: 28 }}>
+        <div style={{ marginBottom: 12 }}>
+          <h2 className="bs-heading" style={{ fontSize: 18, marginBottom: 3 }}>QuickBooks</h2>
+          <p style={{ fontSize: 12, color: "var(--ink-3)", margin: 0 }}>
+            Connect QuickBooks Online to automatically create and email invoices to club admins when payouts are processed.
+          </p>
+        </div>
+        <div className="bs-card" style={{ padding: "16px 20px", maxWidth: 560 }}>
+          {sp.qbo_connected && (
+            <div style={{ background: "rgba(31,77,58,0.07)", border: "1px solid rgba(31,77,58,0.2)", borderRadius: 8, padding: "10px 14px", marginBottom: 12, fontSize: 12, color: "var(--bs-green, #1f4d3a)" }}>
+              QuickBooks connected successfully.
+            </div>
+          )}
+          <QBOConnect initialError={sp.qbo_error} />
         </div>
       </section>
 
