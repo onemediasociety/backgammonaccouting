@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSuperAdminApi } from "@/lib/api-auth";
 import { getUserById, updateUser, deleteUser, getAllUsers } from "@/lib/users-store";
+import { getAllSplits, upsertSplit } from "@/lib/splits-store";
 
 export async function GET(
   _req: NextRequest,
@@ -29,7 +30,7 @@ export async function PUT(
     return NextResponse.json({ error: "Cannot modify the virtual admin" }, { status: 400 });
   }
 
-  const { username, password, clubSlugs, status, role, recipientName } = await req.json();
+  const { username, password, clubSlugs, status, role, recipientName, previousRecipientName } = await req.json();
 
   try {
     const user = await updateUser(id, {
@@ -40,6 +41,27 @@ export async function PUT(
       role: role || undefined,
       recipientName: recipientName !== undefined ? (recipientName || null) : undefined,
     });
+
+    // If the recipient name changed and the old name exists in a split config for
+    // one of this user's clubs, rename it automatically so everything stays in sync.
+    if (
+      recipientName &&
+      previousRecipientName &&
+      recipientName !== previousRecipientName &&
+      Array.isArray(clubSlugs)
+    ) {
+      const splits = await getAllSplits();
+      for (const split of splits) {
+        if (!clubSlugs.includes(split.clubSlug)) continue;
+        const idx = split.recipients.findIndex((r) => r.name === previousRecipientName);
+        if (idx < 0) continue;
+        const updated = split.recipients.map((r) =>
+          r.name === previousRecipientName ? { ...r, name: recipientName } : r
+        );
+        await upsertSplit(split.clubSlug, updated);
+      }
+    }
+
     return NextResponse.json(user);
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Failed to update user";

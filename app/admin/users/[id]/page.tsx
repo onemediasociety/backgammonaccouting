@@ -18,6 +18,7 @@ export default function EditUserPage() {
   const [loading, setLoading] = useState(true);
   const [splits, setSplits] = useState<ClubSplit[]>([]);
   const [customName, setCustomName] = useState(false);
+  const [originalRecipientName, setOriginalRecipientName] = useState("");
 
   useEffect(() => {
     Promise.all([
@@ -28,6 +29,7 @@ export default function EditUserPage() {
         setUser(u);
         setSplits(Array.isArray(s) ? s : []);
         const recip = u.recipientName ?? "";
+        setOriginalRecipientName(recip);
         setForm({ username: u.username, password: "", clubSlugs: u.clubSlugs, status: u.status ?? "active", role: (u.role as "club_admin" | "super_admin") ?? "club_admin", recipientName: recip });
         // If existing recipientName doesn't appear in any split, enable custom mode
         if (recip) {
@@ -65,7 +67,7 @@ export default function EditUserPage() {
       const res = await fetch(`/api/admin/users/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: form.username, password: form.password || undefined, clubSlugs: form.clubSlugs, status: form.status, role: form.role, recipientName: form.recipientName || null }),
+        body: JSON.stringify({ username: form.username, password: form.password || undefined, clubSlugs: form.clubSlugs, status: form.status, role: form.role, recipientName: form.recipientName || null, previousRecipientName: originalRecipientName || null }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? "Failed to update user."); return; }
