@@ -16,7 +16,7 @@ export default async function AdminSettingsPage() {
   const pendingUsers = users.filter((u) => u.status === "pending");
   const allClubs = getAllClubs();
   const extraSlugs = new Set(getExtraClubs().map((c) => c.slug));
-  const venues = getVenueMappings();
+  const venues = await getVenueMappings();
   const clubOptions = allClubs.map((c) => ({ slug: c.slug, city: c.city, flag: c.flag }));
 
   return (

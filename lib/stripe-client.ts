@@ -62,7 +62,7 @@ export interface CustomerRecord {
 // Keywords to match against the Stripe charge description (case-insensitive).
 const DESCRIPTION_KEYWORDS: Array<{ slug: string; keywords: string[] }> = [
   { slug: "dc",        keywords: ["WASHINGTON", "D.C.", "VERA", "DC — 20"] },
-  { slug: "nyc",       keywords: ["NYC", "NEW YORK"] },
+  { slug: "nyc",       keywords: ["NYC", "NEW YORK", "CAFE LANDWER", "LANDWER WILLIAMSBURG"] },
   { slug: "miami",     keywords: ["MIAMI"] },
   { slug: "geneva",    keywords: ["GENEVA"] },
   { slug: "montreal",  keywords: ["MONTREAL"] },
@@ -72,13 +72,13 @@ const DESCRIPTION_KEYWORDS: Array<{ slug: string; keywords: string[] }> = [
   { slug: "morocco",   keywords: ["MOROCCO", "CASABLANCA", "MARRAKECH", "MAROC", "LE GLAZ", "CASABLANCA — 20"] },
 ];
 
-function classifyByDescription(description: string | null): string | null {
+async function classifyByDescription(description: string | null): Promise<string | null> {
   if (!description) return null;
   const upper = description.toUpperCase();
   for (const { keywords, slug } of DESCRIPTION_KEYWORDS) {
     if (keywords.some((k) => upper.includes(k))) return slug;
   }
-  const venues = getVenueMappings();
+  const venues = await getVenueMappings();
   for (const { keyword, clubSlug } of venues) {
     if (upper.includes(keyword)) return clubSlug;
   }
@@ -103,14 +103,14 @@ function slugFromMetadata(metadata: Record<string, string> | null | undefined): 
   return val ? val.toLowerCase() : null;
 }
 
-function getClubSlug(
+async function getClubSlug(
   amount: number,
   currency: string,
   description: string | null,
   metadata?: Record<string, string> | null,
   paymentLinkId?: string | null,
   piId?: string | null,
-): string {
+): Promise<string> {
   if (piId) {
     const override = getPiOverrides()[piId];
     if (override) return override;
@@ -119,7 +119,7 @@ function getClubSlug(
     const mapped = getPaymentLinkMap()[paymentLinkId];
     if (mapped) return mapped;
   }
-  return slugFromMetadata(metadata) ?? classifyByDescription(description) ?? classifyPayment(amount, currency).slug;
+  return slugFromMetadata(metadata) ?? (await classifyByDescription(description)) ?? classifyPayment(amount, currency).slug;
 }
 
 // ─── Single Stripe fetch: payments + fees in one paginated call ───────────────
@@ -162,7 +162,7 @@ async function _fetchAllPaymentsRaw(
       status: pi.status,
       created: pi.created,
       description,
-      clubSlug: getClubSlug(
+      clubSlug: await getClubSlug(
         pi.amount, pi.currency, description,
         pi.metadata as Record<string, string> | null,
         (charge?.metadata?.payment_link as string | undefined)

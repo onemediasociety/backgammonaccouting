@@ -1,55 +1,91 @@
 import fs from "fs";
 import path from "path";
+import { put, head } from "@vercel/blob";
+import { unstable_cache, revalidateTag } from "next/cache";
 
 export interface VenueMapping {
   keyword: string;  // uppercase, matched as substring of description
   clubSlug: string;
 }
 
-const TMP_FILE = "/tmp/venues.json";
+const BLOB_KEY = "venues/mappings.json";
 const SEED_FILE = path.join(process.cwd(), "data", "venues.json");
 
-function readStore(): VenueMapping[] {
-  for (const file of [TMP_FILE, SEED_FILE]) {
-    try {
-      if (fs.existsSync(file)) {
-        const raw = fs.readFileSync(file, "utf-8");
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) return parsed as VenueMapping[];
-      }
-    } catch {
-      // try next
+function hasBlob(): boolean {
+  return !!process.env.BLOB_READ_WRITE_TOKEN;
+}
+
+// ── Seed data (always present as fallback) ────────────────────────────────────
+
+function readSeed(): VenueMapping[] {
+  try {
+    if (fs.existsSync(SEED_FILE)) {
+      const parsed = JSON.parse(fs.readFileSync(SEED_FILE, "utf-8"));
+      if (Array.isArray(parsed)) return parsed as VenueMapping[];
     }
-  }
+  } catch { /* ignore */ }
   return [];
 }
 
-function writeStore(venues: VenueMapping[]): void {
-  const json = JSON.stringify(venues, null, 2);
-  fs.writeFileSync(TMP_FILE, json);
-  try { fs.writeFileSync(SEED_FILE, json); } catch { /* read-only on some deployments */ }
+// ── Blob helpers ──────────────────────────────────────────────────────────────
+
+async function blobRead(): Promise<VenueMapping[]> {
+  try {
+    const info = await head(BLOB_KEY);
+    const res = await fetch(info.url, { cache: "no-store" });
+    if (!res.ok) return readSeed();
+    const data = await res.json();
+    return Array.isArray(data) ? (data as VenueMapping[]) : readSeed();
+  } catch {
+    return readSeed();
+  }
 }
 
-export function getVenueMappings(): VenueMapping[] {
-  return readStore();
+async function blobWrite(venues: VenueMapping[]): Promise<void> {
+  await put(BLOB_KEY, JSON.stringify(venues), {
+    access: "public",
+    contentType: "application/json",
+    addRandomSuffix: false,
+    allowOverwrite: true,
+  });
 }
 
-export function createVenueMapping(keyword: string, clubSlug: string): VenueMapping {
-  const venues = readStore();
+// ── Cached read ───────────────────────────────────────────────────────────────
+
+const getCachedVenues = unstable_cache(blobRead, ["venues-blob"], {
+  revalidate: 60,
+  tags: ["venues"],
+});
+
+// ── Public API ────────────────────────────────────────────────────────────────
+
+export async function getVenueMappings(): Promise<VenueMapping[]> {
+  if (!hasBlob()) return readSeed();
+  return getCachedVenues();
+}
+
+export async function createVenueMapping(keyword: string, clubSlug: string): Promise<VenueMapping> {
+  const venues = hasBlob() ? await blobRead() : readSeed();
   const clean = keyword.trim().toUpperCase();
   if (venues.some((v) => v.keyword === clean && v.clubSlug === clubSlug)) {
     throw new Error(`Venue keyword "${clean}" already mapped to ${clubSlug}`);
   }
   const entry: VenueMapping = { keyword: clean, clubSlug };
-  venues.push(entry);
-  writeStore(venues);
+  const next = [...venues, entry];
+  if (hasBlob()) {
+    await blobWrite(next);
+    revalidateTag("venues", { expire: 0 } as Parameters<typeof revalidateTag>[1]);
+  }
   return entry;
 }
 
-export function deleteVenueMapping(keyword: string, clubSlug: string): boolean {
-  const venues = readStore();
+export async function deleteVenueMapping(keyword: string, clubSlug: string): Promise<boolean> {
+  const venues = hasBlob() ? await blobRead() : readSeed();
   const next = venues.filter((v) => !(v.keyword === keyword.toUpperCase() && v.clubSlug === clubSlug));
   if (next.length === venues.length) return false;
-  writeStore(next);
+  if (hasBlob()) {
+    await blobWrite(next);
+    revalidateTag("venues", { expire: 0 } as Parameters<typeof revalidateTag>[1]);
+  }
   return true;
 }
