@@ -184,11 +184,14 @@ export default function SidebarClient({ clubs, username, role, isSuper }: Props)
         {/* Settings dropdown — super admin only */}
         {isSuper && (
           <>
-            <button
+            <div
+              role="button"
+              tabIndex={0}
               onClick={() => setSettingsOpen((v) => !v)}
+              onKeyDown={(e) => e.key === "Enter" && setSettingsOpen((v) => !v)}
               className={`bs-nav-item${inAdmin ? " active" : ""}`}
               title={!expanded ? "Settings" : undefined}
-              style={{ width: "100%", background: "none", border: "none", cursor: "pointer", textAlign: "left" }}
+              style={{ cursor: "pointer", userSelect: "none" }}
             >
               <span className="nav-icon">{Icons.admin}</span>
               {expanded && (
@@ -202,7 +205,7 @@ export default function SidebarClient({ clubs, username, role, isSuper }: Props)
                   </svg>
                 </>
               )}
-            </button>
+            </div>
 
             {(settingsOpen || inAdmin) && expanded && (
               <div style={{ paddingLeft: 16, paddingBottom: 2 }}>
