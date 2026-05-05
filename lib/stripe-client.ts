@@ -103,19 +103,6 @@ function slugFromMetadata(metadata: Record<string, string> | null | undefined): 
   return val ? val.toLowerCase() : null;
 }
 
-// DC billing addresses: state "DC" or cities in the DC metro area
-function slugFromBillingAddress(
-  billingState: string | null,
-  billingCity: string | null,
-): string | null {
-  const state = (billingState ?? "").toUpperCase().trim();
-  const city = (billingCity ?? "").toUpperCase().trim();
-  if (state === "DC" || city === "WASHINGTON" || city === "WASHINGTON DC" || city === "WASHINGTON, DC") {
-    return "dc";
-  }
-  return null;
-}
-
 async function getClubSlug(
   amount: number,
   currency: string,
@@ -123,8 +110,7 @@ async function getClubSlug(
   metadata?: Record<string, string> | null,
   paymentLinkId?: string | null,
   piId?: string | null,
-  billingState?: string | null,
-  billingCity?: string | null,
+  productName?: string | null,
 ): Promise<string> {
   if (piId) {
     const override = getPiOverrides()[piId];
@@ -138,11 +124,49 @@ async function getClubSlug(
   if (fromMeta) return fromMeta;
   const fromDesc = await classifyByDescription(description);
   if (fromDesc) return fromDesc;
-  // Billing address tiebreaker: used when description/metadata aren't set.
-  // DC events and NYC events both charge $26 USD — billing state disambiguates.
-  const fromBilling = slugFromBillingAddress(billingState ?? null, billingCity ?? null);
-  if (fromBilling) return fromBilling;
+  // Product name from checkout session line items (receipt description)
+  const fromProduct = await classifyByDescription(productName ?? null);
+  if (fromProduct) return fromProduct;
   return classifyPayment(amount, currency).slug;
+}
+
+// ─── Checkout session product name map ───────────────────────────────────────
+// Stripe stores the product/price name on the checkout session line items.
+// This is what appears on the receipt email ("Vera — Your Registration" etc.)
+// but is NOT copied to the charge or payment intent description.
+// We fetch all completed sessions and build a PI → product name map so
+// classifyByDescription can match against the actual product name.
+
+async function buildSessionProductMap(
+  fromTs: number | null,
+  toTs: number | null,
+): Promise<Map<string, string>> {
+  const stripe = getStripe();
+  const map = new Map<string, string>();
+  const params: Stripe.Checkout.SessionListParams = {
+    limit: 100,
+    status: "complete",
+    expand: ["data.line_items"],
+  };
+  if (fromTs !== null || toTs !== null) {
+    params.created = {};
+    if (fromTs !== null) (params.created as Stripe.RangeQueryParam).gte = fromTs;
+    if (toTs !== null)   (params.created as Stripe.RangeQueryParam).lte = toTs;
+  }
+  try {
+    for await (const session of stripe.checkout.sessions.list(params)) {
+      const piId = typeof session.payment_intent === "string"
+        ? session.payment_intent
+        : (session.payment_intent as Stripe.PaymentIntent | null)?.id ?? null;
+      if (!piId) continue;
+      const lineItem = session.line_items?.data[0];
+      const name = lineItem?.description ?? null;
+      if (name) map.set(piId, name);
+    }
+  } catch {
+    // Non-fatal — falls back to amount-based classification
+  }
+  return map;
 }
 
 // ─── Single Stripe fetch: payments + fees in one paginated call ───────────────
@@ -164,11 +188,16 @@ async function _fetchAllPaymentsRaw(
     if (fromTs !== null) (params.created as Stripe.RangeQueryParam).gte = fromTs;
     if (toTs !== null)   (params.created as Stripe.RangeQueryParam).lte = toTs;
   }
+  // Fetch checkout session product names in parallel — this is what populates
+  // the receipt description ("Vera — Your Registration", "Cafe Landwer…", etc.)
+  const sessionProductMap = await buildSessionProductMap(fromTs, toTs);
+
   const results: PaymentRecord[] = [];
   for await (const pi of stripe.paymentIntents.list(params)) {
     const charge = pi.latest_charge as Stripe.Charge | null;
     const bt = charge?.balance_transaction as Stripe.BalanceTransaction | null;
     const description = charge?.description ?? pi.description;
+    const productName = sessionProductMap.get(pi.id) ?? null;
 
     // bt.fee is in the settlement currency (e.g. USD for a US Stripe account).
     // Convert back to the presentment currency using bt.exchange_rate so the
@@ -192,8 +221,7 @@ async function _fetchAllPaymentsRaw(
           ?? ((pi as unknown as Record<string, unknown>).payment_link as string | null)
           ?? null,
         pi.id,
-        charge?.billing_details?.address?.state ?? null,
-        charge?.billing_details?.address?.city ?? null,
+        productName,
       ),
       customerName: charge?.billing_details?.name ?? null,
       customerEmail: charge?.billing_details?.email ?? null,
