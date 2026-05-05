@@ -40,8 +40,11 @@ export default function SidebarClient({ clubs, username, role, isSuper }: Props)
   const [expanded, setExpanded] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
+
+  const inAdmin = pathname.startsWith("/admin");
 
   // Which club is "active" — derive from URL
   const clubMatch = pathname.match(/^\/clubs\/([^/]+)/);
@@ -88,9 +91,14 @@ export default function SidebarClient({ clubs, username, role, isSuper }: Props)
     baseItems.push(
       { href: "/reports", label: "Reports", icon: Icons.reports },
       { href: "/members", label: "Members", icon: Icons.members },
-      { href: "/admin", label: "Settings", icon: Icons.admin },
     );
   }
+
+  const settingsSubItems = [
+    { href: "/admin", label: "General", exact: true },
+    { href: "/admin/users", label: "Users" },
+    { href: "/admin/splits", label: "Splits" },
+  ];
 
   function isActive(item: NavItem) {
     if (item.exact) return pathname === item.href.split("?")[0];
@@ -172,6 +180,57 @@ export default function SidebarClient({ clubs, username, role, isSuper }: Props)
             {expanded && <span className="nav-label">{item.label}</span>}
           </Link>
         ))}
+
+        {/* Settings dropdown — super admin only */}
+        {isSuper && (
+          <>
+            <button
+              onClick={() => setSettingsOpen((v) => !v)}
+              className={`bs-nav-item${inAdmin ? " active" : ""}`}
+              title={!expanded ? "Settings" : undefined}
+              style={{ width: "100%", background: "none", border: "none", cursor: "pointer", textAlign: "left" }}
+            >
+              <span className="nav-icon">{Icons.admin}</span>
+              {expanded && (
+                <>
+                  <span className="nav-label" style={{ flex: 1 }}>Settings</span>
+                  <svg
+                    width="10" height="10" viewBox="0 0 10 10" fill="none"
+                    style={{ flexShrink: 0, transition: "transform 180ms", transform: (settingsOpen || inAdmin) ? "rotate(180deg)" : "none", opacity: 0.5 }}
+                  >
+                    <path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </>
+              )}
+            </button>
+
+            {(settingsOpen || inAdmin) && expanded && (
+              <div style={{ paddingLeft: 16, paddingBottom: 2 }}>
+                {settingsSubItems.map((sub) => {
+                  const subActive = sub.exact ? pathname === sub.href : pathname.startsWith(sub.href);
+                  return (
+                    <Link
+                      key={sub.href}
+                      href={sub.href}
+                      onClick={() => setMobileOpen(false)}
+                      style={{
+                        display: "block", padding: "6px 12px", borderRadius: 6, fontSize: 12,
+                        fontFamily: "var(--font-dm-mono, monospace)",
+                        color: subActive ? "rgba(240,235,226,0.9)" : "rgba(240,235,226,0.45)",
+                        background: subActive ? "rgba(255,255,255,0.09)" : "none",
+                        textDecoration: "none", marginBottom: 2,
+                        borderLeft: subActive ? "2px solid rgba(184,144,66,0.6)" : "2px solid transparent",
+                        transition: "all 150ms",
+                      }}
+                    >
+                      {sub.label}
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </>
+        )}
       </nav>
 
       {/* Footer */}
