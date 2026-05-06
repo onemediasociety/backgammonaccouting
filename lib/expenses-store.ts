@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
-import { put, list, del } from "@vercel/blob";
+import { put, head } from "@vercel/blob";
 import { unstable_cache, revalidateTag } from "next/cache";
 import type { ExpenseCategory } from "./expense-categories";
 
@@ -22,68 +22,49 @@ export interface Expense {
   createdAt: string;
 }
 
-const BLOB_PREFIX = "expense-entries/";
-const TMP_FILE = "/tmp/expenses.json";
+const BLOB_KEY = "expenses/all.json";
 const SEED_FILE = path.join(process.cwd(), "data", "expenses.json");
 
 function hasBlob(): boolean {
   return !!process.env.BLOB_READ_WRITE_TOKEN;
 }
 
-async function blobReadAll(): Promise<Expense[]> {
+function readSeed(): Expense[] {
   try {
-    const { blobs } = await list({ prefix: BLOB_PREFIX, limit: 1000 });
-    if (blobs.length === 0) return [];
-    const results = await Promise.all(
-      blobs.map(async (b) => {
-        try {
-          const res = await fetch(b.url, { cache: "no-store" });
-          return res.ok ? (await res.json() as Expense) : null;
-        } catch {
-          return null;
-        }
-      })
-    );
-    return results.filter((e): e is Expense => e !== null);
-  } catch (err) {
-    console.error("[expenses-store] blobReadAll error:", err);
-    return [];
+    if (fs.existsSync(SEED_FILE)) {
+      const parsed = JSON.parse(fs.readFileSync(SEED_FILE, "utf-8"));
+      if (Array.isArray(parsed)) return parsed as Expense[];
+    }
+  } catch { /* ignore */ }
+  return [];
+}
+
+async function blobRead(): Promise<Expense[]> {
+  try {
+    const info = await head(BLOB_KEY);
+    const res = await fetch(info.url, { cache: "no-store" });
+    if (!res.ok) return readSeed();
+    const data = await res.json();
+    return Array.isArray(data) ? (data as Expense[]) : readSeed();
+  } catch {
+    return readSeed();
   }
 }
 
-async function blobWriteEntry(expense: Expense): Promise<void> {
-  await put(`${BLOB_PREFIX}${expense.id}.json`, JSON.stringify(expense), {
+async function blobWrite(expenses: Expense[]): Promise<void> {
+  await put(BLOB_KEY, JSON.stringify(expenses), {
     access: "public",
     contentType: "application/json",
     addRandomSuffix: false,
     allowOverwrite: true,
   });
+  revalidateTag("expenses", { expire: 0 } as Parameters<typeof revalidateTag>[1]);
 }
 
-async function blobDeleteEntry(id: string): Promise<boolean> {
-  const { blobs } = await list({ prefix: `${BLOB_PREFIX}${id}.json`, limit: 1 });
-  if (blobs.length === 0) return false;
-  await del(blobs[0].url);
-  return true;
-}
-
-function fileReadAll(): Expense[] {
-  for (const file of [TMP_FILE, SEED_FILE]) {
-    try {
-      if (fs.existsSync(file)) {
-        const parsed = JSON.parse(fs.readFileSync(file, "utf-8"));
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed as Expense[];
-      }
-    } catch { /* try next */ }
-  }
-  return [];
-}
-
-function fileWriteAll(entries: Expense[]): void {
-  const json = JSON.stringify(entries, null, 2);
-  fs.writeFileSync(TMP_FILE, json);
-  try { fs.writeFileSync(SEED_FILE, json); } catch { /* read-only on Vercel */ }
-}
+const getCachedExpenses = unstable_cache(blobRead, ["expenses-blob"], {
+  revalidate: 60,
+  tags: ["expenses"],
+});
 
 function filterByDate(entries: Expense[], from?: string, to?: string): Expense[] {
   return entries.filter((e) => {
@@ -93,18 +74,17 @@ function filterByDate(entries: Expense[], from?: string, to?: string): Expense[]
   });
 }
 
-const getCachedExpenses = unstable_cache(blobReadAll, ["expenses-blob"], {
-  revalidate: 60,
-  tags: ["expenses"],
-});
+async function readStore(): Promise<Expense[]> {
+  if (!hasBlob()) return readSeed();
+  return getCachedExpenses();
+}
 
 export async function getAllExpenses(from?: string, to?: string): Promise<Expense[]> {
-  const all = hasBlob() ? await getCachedExpenses() : fileReadAll();
-  return filterByDate(all, from, to);
+  return filterByDate(await readStore(), from, to);
 }
 
 export async function getExpensesForClub(slug: string, from?: string, to?: string): Promise<Expense[]> {
-  const all = hasBlob() ? await getCachedExpenses() : fileReadAll();
+  const all = await readStore();
   return filterByDate(all.filter((e) => e.clubSlug === slug), from, to);
 }
 
@@ -114,52 +94,27 @@ export async function addExpense(data: Omit<Expense, "id" | "createdAt">): Promi
     id: uuidv4(),
     createdAt: new Date().toISOString(),
   };
-  if (hasBlob()) {
-    await blobWriteEntry(expense);
-  } else {
-    const all = fileReadAll();
-    all.push(expense);
-    fileWriteAll(all);
-  }
-  revalidateTag("expenses", { expire: 0 });
+  const all = hasBlob() ? await blobRead() : readSeed();
+  all.push(expense);
+  if (hasBlob()) await blobWrite(all);
   return expense;
 }
 
 export async function updateExpense(id: string, data: Partial<Omit<Expense, "id" | "createdAt" | "clubSlug">>): Promise<Expense | null> {
-  if (hasBlob()) {
-    const { blobs } = await list({ prefix: `${BLOB_PREFIX}${id}.json`, limit: 1 });
-    if (blobs.length === 0) return null;
-    const res = await fetch(blobs[0].url, { cache: "no-store" });
-    if (!res.ok) return null;
-    const existing = await res.json() as Expense;
-    const updated: Expense = { ...existing, ...data };
-    await blobWriteEntry(updated);
-    revalidateTag("expenses", { expire: 0 });
-    return updated;
-  } else {
-    const all = fileReadAll();
-    const idx = all.findIndex((e) => e.id === id);
-    if (idx < 0) return null;
-    all[idx] = { ...all[idx], ...data };
-    fileWriteAll(all);
-    revalidateTag("expenses", { expire: 0 });
-    return all[idx];
-  }
+  const all = hasBlob() ? await blobRead() : readSeed();
+  const idx = all.findIndex((e) => e.id === id);
+  if (idx < 0) return null;
+  all[idx] = { ...all[idx], ...data };
+  if (hasBlob()) await blobWrite(all);
+  return all[idx];
 }
 
 export async function deleteExpense(id: string): Promise<boolean> {
-  let deleted: boolean;
-  if (hasBlob()) {
-    deleted = await blobDeleteEntry(id);
-  } else {
-    const all = fileReadAll();
-    const next = all.filter((e) => e.id !== id);
-    if (next.length === all.length) return false;
-    fileWriteAll(next);
-    deleted = true;
-  }
-  if (deleted) revalidateTag("expenses", { expire: 0 });
-  return deleted;
+  const all = hasBlob() ? await blobRead() : readSeed();
+  const next = all.filter((e) => e.id !== id);
+  if (next.length === all.length) return false;
+  if (hasBlob()) await blobWrite(next);
+  return true;
 }
 
 export async function getExpenseTotalsPerClub(from?: string, to?: string): Promise<Record<string, number>> {
